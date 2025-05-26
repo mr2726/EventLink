@@ -16,7 +16,8 @@ import {
   serverTimestamp,
   increment,
   Timestamp,
-  arrayUnion
+  arrayUnion,
+  FieldValue // Added FieldValue for serverTimestamp
 } from 'firebase/firestore';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -25,15 +26,17 @@ const convertEventTimestamps = (eventData: any): Event => {
   const data = { ...eventData };
   if (data.date && typeof data.date === 'string') {
     // Assuming date is stored as YYYY-MM-DD string, no conversion needed here for display
-    // If date were a Firestore Timestamp:
-    // data.date = (data.date as Timestamp)?.toDate().toISOString().split('T')[0] || null;
+  }
+  if (data.createdAt && data.createdAt instanceof Timestamp) {
+    data.createdAt = data.createdAt.toDate().toISOString();
   }
   if (data.attendees) {
     data.attendees = data.attendees.map((attendee: any) => {
+      const updatedAttendee = { ...attendee };
       if (attendee.submittedAt && attendee.submittedAt instanceof Timestamp) {
-        return { ...attendee, submittedAt: attendee.submittedAt.toDate().toISOString() };
+        updatedAttendee.submittedAt = attendee.submittedAt.toDate().toISOString();
       }
-      return attendee;
+      return updatedAttendee;
     });
   }
   return data as Event;
@@ -58,7 +61,11 @@ export function useEventStorage() {
           querySnapshot.forEach((doc) => {
             userEvents.push(convertEventTimestamps({ id: doc.id, ...doc.data() } as Event));
           });
-          setEvents(userEvents.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime())); // Sort by date
+          setEvents(userEvents.sort((a,b) => {
+             const dateA = a.createdAt ? new Date(a.createdAt as string).getTime() : 0;
+             const dateB = b.createdAt ? new Date(b.createdAt as string).getTime() : 0;
+             return dateB - dateA; // Sort by creation date, newest first
+          }));
         } catch (error) {
           console.error("Error fetching user events:", error);
           setEvents([]);
@@ -76,14 +83,14 @@ export function useEventStorage() {
   }, [user]);
 
 
-  const addEvent = useCallback(async (newEventData: Omit<Event, 'id' | 'attendees' | 'views' | 'rsvpCounts'> & { userId: string }): Promise<Event> => {
+  const addEvent = useCallback(async (newEventData: Omit<Event, 'id' | 'attendees' | 'views' | 'rsvpCounts' | 'createdAt'> & { userId: string }): Promise<Event> => {
     try {
       const eventToCreate = {
         ...newEventData,
         views: 0,
         rsvpCounts: { going: 0, maybe: 0, not_going: 0 },
         attendees: [],
-        createdAt: serverTimestamp(), // Firestore server timestamp
+        createdAt: serverTimestamp() as FieldValue,
       };
       const docRef = await addDoc(collection(db, 'events'), eventToCreate);
       // After adding, refetch user's events to update the list on homepage
@@ -94,9 +101,16 @@ export function useEventStorage() {
         querySnapshot.forEach((doc) => {
           userEventsList.push(convertEventTimestamps({ id: doc.id, ...doc.data() } as Event));
         });
-        setEvents(userEventsList.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+        setEvents(userEventsList.sort((a,b) => {
+            const dateA = a.createdAt ? new Date(a.createdAt as string).getTime() : 0;
+            const dateB = b.createdAt ? new Date(b.createdAt as string).getTime() : 0;
+            return dateB - dateA;
+        }));
       }
-      return { id: docRef.id, ...eventToCreate, attendees: [], createdAt: new Date().toISOString() } as Event; // Return with ID
+      // For the returned event, we simulate the serverTimestamp with a client-side date
+      // as Firestore wouldn't have resolved it yet for the return value.
+      const createdEventData = { ...eventToCreate, id: docRef.id, createdAt: new Date().toISOString() };
+      return convertEventTimestamps(createdEventData as any) as Event;
     } catch (error) {
       console.error("Error adding event to Firestore:", error);
       throw error; // Re-throw to be caught by caller
@@ -141,22 +155,36 @@ export function useEventStorage() {
     if (!eventId) return;
     try {
       const eventDocRef = doc(db, 'events', eventId);
-      const newAttendee: Omit<Attendee, 'id'> & {submittedAt: any} = { // Omit id, it's part of the array not the object ID
+      
+      // Prepare attendee data, only including fields that have values
+      const attendeeDataForFirestore: {
+        id: string;
+        status: RSVPStatus;
+        submittedAt: FieldValue;
+        name?: string;
+        email?: string;
+        phone?: string;
+      } = {
+        id: crypto.randomUUID(),
         status: newStatus,
-        submittedAt: serverTimestamp(), // Firestore server timestamp
-        name: details.name || undefined,
-        email: details.email || undefined,
-        phone: details.phone || undefined,
+        submittedAt: serverTimestamp() as FieldValue,
       };
+
+      if (details.name && details.name.trim() !== "") {
+        attendeeDataForFirestore.name = details.name.trim();
+      }
+      if (details.email && details.email.trim() !== "") {
+        attendeeDataForFirestore.email = details.email.trim();
+      }
+      if (details.phone && details.phone.trim() !== "") {
+        attendeeDataForFirestore.phone = details.phone.trim();
+      }
 
       // Atomically update attendees array and increment RSVP count
       await updateDoc(eventDocRef, {
-        attendees: arrayUnion({...newAttendee, id: crypto.randomUUID()}), // Add new attendee to the array
-        [`rsvpCounts.${newStatus}`]: increment(1) // Increment the specific status count
+        attendees: arrayUnion(attendeeDataForFirestore),
+        [`rsvpCounts.${newStatus}`]: increment(1)
       });
-
-      // Note: If a user could change their RSVP, logic to decrement old status count would be needed.
-      // For this prototype, each RSVP is a new entry and increments.
 
     } catch (error) {
       console.error("Error saving RSVP to Firestore:", error);
@@ -164,21 +192,14 @@ export function useEventStorage() {
     }
   }, []);
 
-  // getRSVPForEvent is tricky with Firestore without user-specific RSVP tracking.
-  // For now, this will be removed as individual RSVP status per user session is less relevant
-  // when all attendees are stored in the event. The UI will reflect if *an* RSVP was made.
-  // const getRSVPForEvent = useCallback((eventId: string): RSVPStatus | undefined => {
-  // return undefined; // Or retrieve from local session storage if desired for UI feedback
-  // }, []);
 
   return {
-    events, // User's events for homepage
-    isLoadingEvents, // Loading state for user's events
+    events,
+    isLoadingEvents,
     addEvent,
     getEventById,
     saveRSVP,
-    // getRSVPForEvent, // Removed for now
     incrementEventView,
-    isInitialized // General hook initialization status
+    isInitialized
   };
 }
