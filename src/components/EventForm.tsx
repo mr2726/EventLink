@@ -95,7 +95,7 @@ export default function EventForm({ onSubmit }: EventFormProps) {
         pageBackgroundColor: '#F8F9FA',
         contentBackgroundColor: '#FFFFFF',
         textColor: '#212529',
-        iconAndTitleColor: '#FF7F50', // Coral as default
+        iconAndTitleColor: '#10B981', 
         fontEventName: 'inherit',
         fontTitles: 'inherit',
         fontDescription: 'inherit',
@@ -159,7 +159,7 @@ export default function EventForm({ onSubmit }: EventFormProps) {
         const currentTags = form.getValues("tags");
         const uniqueNewTags = result.tags.filter(tag => !currentTags.includes(tag));
         const combinedTags = [...currentTags, ...uniqueNewTags].slice(0, 10);
-        replaceTags(combinedTags.map(tag => tag)); // Ensure array of strings
+        replaceTags(combinedTags); 
         toast({
           title: "Tags Suggested!",
           description: `${result.tags.length > 0 ? 'New tags added if space available.' : 'No new tags suggested or tags already exist.'}`,
@@ -184,7 +184,7 @@ export default function EventForm({ onSubmit }: EventFormProps) {
       images: data.images.map(img => img.url).filter(url => url && url.trim() !== ''),
       tags: data.tags,
       customStyles: data.customStyles,
-      template: '', // Template field is not actively used for styling currently
+      template: '', 
     };
     onSubmit(newEventData);
   };
@@ -192,7 +192,7 @@ export default function EventForm({ onSubmit }: EventFormProps) {
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
-      <Card className="w-full shadow-2xl lg:sticky lg:top-24"> {/* Sticky form */}
+      <Card className="w-full shadow-2xl lg:sticky lg:top-24"> 
         <CardHeader>
           <CardTitle className="text-3xl font-bold text-primary">Create Your Event Invitation</CardTitle>
           <CardDescription>Fill in the details and customize the appearance of your event page.</CardDescription>
@@ -200,25 +200,25 @@ export default function EventForm({ onSubmit }: EventFormProps) {
         <CardContent>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(processSubmit)} className="space-y-8">
-              {/* Basic Event Details */}
+              
               <FormField control={form.control} name="name" render={({ field }) => ( <FormItem> <FormLabel>Event Name</FormLabel> <FormControl><Input placeholder="e.g., My Awesome Birthday Party" {...field} /></FormControl> <FormMessage /> </FormItem> )}/>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <FormField control={form.control} name="date" render={({ field }) => ( <FormItem className="flex flex-col"> <FormLabel>Event Date</FormLabel> <Popover> <PopoverTrigger asChild> <FormControl><Button variant={"outline"} className={cn("w-full pl-3 text-left font-normal",!field.value && "text-muted-foreground")}> {field.value ? format(field.value, "PPP") : <span>Pick a date</span>} <CalendarIcon className="ml-auto h-4 w-4 opacity-50" /> </Button></FormControl> </PopoverTrigger> <PopoverContent className="w-auto p-0" align="start"> <Calendar mode="single" selected={field.value} onSelect={field.onChange} disabled={(date) => date < new Date(new Date().setHours(0,0,0,0)) } initialFocus/> </PopoverContent> </Popover> <FormMessage /> </FormItem> )}/>
+                <FormField control={form.control} name="date" render={({ field }) => ( <FormItem className="flex flex-col"> <FormLabel>Event Date</FormLabel> <Popover> <PopoverTrigger asChild><Button variant={"outline"} className={cn("w-full pl-3 text-left font-normal",!field.value && "text-muted-foreground")}> {field.value ? format(field.value, "PPP") : <span>Pick a date</span>} <CalendarIcon className="ml-auto h-4 w-4 opacity-50" /> </Button></PopoverTrigger> <PopoverContent className="w-auto p-0" align="start"> <Calendar mode="single" selected={field.value} onSelect={field.onChange} disabled={(date) => date < new Date(new Date().setHours(0,0,0,0)) } initialFocus/> </PopoverContent> </Popover> <FormMessage /> </FormItem> )}/>
                 <FormField control={form.control} name="time" render={({ field }) => ( <FormItem> <FormLabel>Event Time</FormLabel> <FormControl><Input type="time" {...field} /></FormControl> <FormMessage /> </FormItem> )}/>
               </div>
               <FormField control={form.control} name="location" render={({ field }) => ( <FormItem> <FormLabel>Location</FormLabel> <FormControl><Input placeholder="e.g., 123 Main St, Anytown" {...field} /></FormControl> <FormMessage /> </FormItem> )}/>
               <FormField control={form.control} name="description" render={({ field }) => ( <FormItem> <FormLabel>Description</FormLabel> <FormControl><Textarea rows={5} placeholder="Tell your guests about the event..." {...field} /></FormControl> <FormMessage /> </FormItem> )}/>
               <FormField control={form.control} name="mapLink" render={({ field }) => ( <FormItem> <FormLabel>Map Link (Optional)</FormLabel> <FormControl><Input placeholder="e.g., https://maps.google.com/..." {...field} /></FormControl> <FormMessage /> </FormItem> )}/>
 
-              {/* Images and Tags */}
+              
               <FormItem> <FormLabel>Images (Up to 5 URLs, first one is primary)</FormLabel> {imageFields.map((item, index) => ( <div key={item.id} className="flex items-center gap-2 mb-2"> <FormControl><Input {...form.register(`images.${index}.url`)} placeholder={`Image URL ${index + 1}${index === 0 ? ' (Primary)' : ''}`}/></FormControl> {imageFields.length > 1 && ( <Button type="button" variant="ghost" size="icon" onClick={() => removeImage(index)} aria-label="Remove image"> <MinusCircle className="h-5 w-5 text-destructive" /> </Button> )} </div> ))} {imageFields.length < 5 && ( <Button type="button" variant="outline" size="sm" onClick={() => appendImage({ url: 'https://placehold.co/600x400.png' })}> <PlusCircle className="mr-2 h-4 w-4" /> Add Image URL </Button> )} <FormMessage>{form.formState.errors.images?.message || form.formState.errors.images?.root?.message}</FormMessage> </FormItem>
               <FormItem> <FormLabel>Tags (Up to 10)</FormLabel> <div className="flex items-center gap-2 mb-2"> <FormControl><Input placeholder="Add a tag (e.g., birthday)" value={currentTagInput} onChange={(e) => setCurrentTagInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddTag();}}}/></FormControl> <Button type="button" variant="outline" onClick={handleAddTag}>Add Tag</Button> </div> <div className="flex flex-wrap gap-2 mb-2"> {tagFields.map((_item, index) => ( <Badge key={_item.id} variant="secondary" className="flex items-center gap-1"> <span>{form.getValues("tags")[index]}</span> <button type="button" onClick={() => removeTag(index)} className="ml-1 focus:outline-none"> <MinusCircle className="h-3 w-3" /> </button> </Badge> ))} </div> <Button type="button" variant="outline" size="sm" onClick={handleSuggestTags} disabled={isSuggestingTags}> <Sparkles className="mr-2 h-4 w-4" /> {isSuggestingTags ? 'Suggesting...' : 'Suggest Tags with AI'} </Button> <FormMessage>{form.formState.errors.tags?.message || form.formState.errors.tags?.root?.message}</FormMessage> </FormItem>
 
-              {/* RSVP and Sharing Options */}
+              
               <FormItem> <FormLabel>RSVP Information to Collect</FormLabel> <FormDescription>Select which details guests should provide when they RSVP.</FormDescription> <div className="space-y-3 pt-2"> <FormField control={form.control} name="rsvpCollectFields.name" render={({ field }) => ( <FormItem className="flex flex-row items-center space-x-3 space-y-0 p-3 border rounded-md shadow-sm hover:bg-muted/50"> <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange}/></FormControl> <FormLabel className="font-normal flex items-center cursor-pointer"> <User className="mr-2 h-5 w-5 text-primary" /> Collect Name </FormLabel> </FormItem> )}/> <FormField control={form.control} name="rsvpCollectFields.email" render={({ field }) => ( <FormItem className="flex flex-row items-center space-x-3 space-y-0 p-3 border rounded-md shadow-sm hover:bg-muted/50"> <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange}/></FormControl> <FormLabel className="font-normal flex items-center cursor-pointer"> <AtSign className="mr-2 h-5 w-5 text-primary" /> Collect Email Address </FormLabel> </FormItem> )}/> <FormField control={form.control} name="rsvpCollectFields.phone" render={({ field }) => ( <FormItem className="flex flex-row items-center space-x-3 space-y-0 p-3 border rounded-md shadow-sm hover:bg-muted/50"> <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange}/></FormControl> <FormLabel className="font-normal flex items-center cursor-pointer"> <Phone className="mr-2 h-5 w-5 text-primary" /> Collect Phone Number </FormLabel> </FormItem> )}/> </div> </FormItem>
               <FormField control={form.control} name="allowEventSharing" render={({ field }) => ( <FormItem className="flex flex-row items-center space-x-3 space-y-0 p-3 border rounded-md shadow-sm hover:bg-muted/50"> <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange}/></FormControl> <div className="space-y-0.5"> <FormLabel className="font-normal flex items-center cursor-pointer"> <Share2 className="mr-2 h-5 w-5 text-primary" /> Allow Event Sharing </FormLabel> <FormDescription> If checked, guests will see a "Share this Event" section on the invitation page. </FormDescription> </div> </FormItem> )}/>
 
-              {/* Custom Styles Section */}
+              
               <Separator />
               <div className="space-y-2">
                 <h3 className="text-xl font-semibold flex items-center"><Palette className="mr-2 h-5 w-5 text-primary" />Color Customization</h3>
@@ -249,8 +249,8 @@ export default function EventForm({ onSubmit }: EventFormProps) {
         </CardContent>
       </Card>
 
-      {/* Live Preview Section */}
-      <div className="w-full lg:sticky lg:top-24"> {/* Sticky preview */}
+      
+      <div className="w-full lg:sticky lg:top-24"> 
         <h3 className="text-2xl font-semibold mb-4 text-center flex items-center justify-center"><Eye className="mr-2 h-6 w-6 text-primary" /> Live Preview</h3>
         <div
           className="rounded-lg shadow-xl overflow-hidden border border-border p-4"
@@ -266,12 +266,12 @@ export default function EventForm({ onSubmit }: EventFormProps) {
               color: watchedCustomStyles?.textColor || '#212529',
             }}
           >
-            {/* Preview Header */}
+            
             <div className="text-center mb-4">
               <h1
                 className="text-3xl font-bold"
                 style={{
-                  color: watchedCustomStyles?.iconAndTitleColor || '#FF7F50',
+                  color: watchedCustomStyles?.iconAndTitleColor || '#10B981',
                   fontFamily: watchedCustomStyles?.fontEventName || 'inherit',
                 }}
               >
@@ -285,12 +285,12 @@ export default function EventForm({ onSubmit }: EventFormProps) {
               </p>
             </div>
 
-            {/* Preview Details */}
+            
             <div className="space-y-3 mb-4">
               <div className="flex items-start">
                 <CalendarDays
                   className="h-5 w-5 mr-3 flex-shrink-0"
-                  style={{ color: watchedCustomStyles?.iconAndTitleColor || '#FF7F50' }}
+                  style={{ color: watchedCustomStyles?.iconAndTitleColor || '#10B981' }}
                 />
                 <div>
                   <h3
@@ -309,7 +309,7 @@ export default function EventForm({ onSubmit }: EventFormProps) {
                   className="font-semibold mb-1 flex items-center"
                   style={{ fontFamily: watchedCustomStyles?.fontTitles || 'inherit' }}
                 >
-                  <Tag className="h-5 w-5 mr-2" style={{ color: watchedCustomStyles?.iconAndTitleColor || '#FF7F50' }}/>
+                  <Tag className="h-5 w-5 mr-2" style={{ color: watchedCustomStyles?.iconAndTitleColor || '#10B981' }}/>
                   About
                 </h3>
                 <p
@@ -321,7 +321,7 @@ export default function EventForm({ onSubmit }: EventFormProps) {
               </div>
             </div>
             
-            {/* Preview RSVP Button Mock */}
+            
             <div className="text-center mt-6">
                 <h3
                     className="font-semibold mb-2"
@@ -330,7 +330,7 @@ export default function EventForm({ onSubmit }: EventFormProps) {
                 <Button
                     variant="default"
                     style={{
-                        backgroundColor: watchedCustomStyles?.iconAndTitleColor || '#FF7F50',
+                        backgroundColor: watchedCustomStyles?.iconAndTitleColor || '#10B981',
                         color: watchedCustomStyles?.contentBackgroundColor && watchedCustomStyles.iconAndTitleColor ? (parseInt(watchedCustomStyles.iconAndTitleColor.replace('#',''), 16) > 0x7FFFFF ? '#000000' : '#FFFFFF') : '#FFFFFF',
                         fontFamily: watchedCustomStyles?.fontTitles || 'inherit'
                     }}
@@ -344,3 +344,5 @@ export default function EventForm({ onSubmit }: EventFormProps) {
     </div>
   );
 }
+
+    
