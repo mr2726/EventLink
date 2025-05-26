@@ -1,3 +1,4 @@
+
 "use client";
 
 import type { Event } from '@/lib/types';
@@ -71,7 +72,7 @@ export default function EventForm({ onSubmit }: EventFormProps) {
   const handleAddTag = () => {
     if (currentTagInput.trim() !== "" && !form.getValues("tags").includes(currentTagInput.trim())) {
       if (tagFields.length < 10) {
-        appendTag(currentTagInput.trim() as any); // Zod expects object, react-hook-form field array for string works with string.
+        appendTag(currentTagInput.trim());
         setCurrentTagInput('');
       } else {
         toast({ title: "Tag Limit", description: "Maximum 10 tags allowed.", variant: "destructive" });
@@ -105,7 +106,7 @@ export default function EventForm({ onSubmit }: EventFormProps) {
       });
       if (result.tags) {
         const newTags = result.tags.slice(0, 10); // Limit to 10 tags
-        replaceTags(newTags.map(tag => (tag as any))); // Zod expects object for field array items
+        replaceTags(newTags); 
         toast({
           title: "Tags Suggested!",
           description: `${newTags.length} tags have been added.`,
@@ -291,10 +292,9 @@ export default function EventForm({ onSubmit }: EventFormProps) {
                 <Button type="button" variant="outline" onClick={handleAddTag}>Add Tag</Button>
               </div>
               <div className="flex flex-wrap gap-2 mb-2">
-                {tagFields.map((tag, index) => (
-                  <Badge key={tag.id} variant="secondary" className="flex items-center gap-1">
-                    {/* @ts-ignore value exists */}
-                    <span>{tag.value || tag}</span>
+                {tagFields.map((field, index) => (
+                  <Badge key={field.id} variant="secondary" className="flex items-center gap-1">
+                    <span>{form.getValues("tags")[index]}</span>
                     <button type="button" onClick={() => removeTag(index)} className="ml-1 focus:outline-none">
                       <MinusCircle className="h-3 w-3" />
                     </button>
@@ -342,3 +342,4 @@ export default function EventForm({ onSubmit }: EventFormProps) {
     </Card>
   );
 }
+
