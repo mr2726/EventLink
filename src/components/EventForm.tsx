@@ -2,7 +2,7 @@
 "use client";
 
 import type { Event } from '@/lib/types';
-import { useForm, useFieldArray, Controller } from 'react-hook-form';
+import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Button } from '@/components/ui/button';
@@ -36,7 +36,7 @@ const eventFormSchema = z.object({
 type EventFormValues = z.infer<typeof eventFormSchema>;
 
 interface EventFormProps {
-  onSubmit: (data: Event) => void;
+  onSubmit: (data: Omit<Event, 'id'>) => void;
 }
 
 export default function EventForm({ onSubmit }: EventFormProps) {
@@ -106,7 +106,7 @@ export default function EventForm({ onSubmit }: EventFormProps) {
       });
       if (result.tags) {
         const newTags = result.tags.slice(0, 10); // Limit to 10 tags
-        replaceTags(newTags); 
+        replaceTags(newTags.map(tag => tag)); 
         toast({
           title: "Tags Suggested!",
           description: `${newTags.length} tags have been added.`,
@@ -125,14 +125,15 @@ export default function EventForm({ onSubmit }: EventFormProps) {
   };
 
   const processSubmit = (data: EventFormValues) => {
-    const newEvent: Event = {
-      id: crypto.randomUUID(),
+    const newEventData: Omit<Event, 'id'> = {
       ...data,
-      date: format(data.date, 'yyyy-MM-dd'),
-      images: data.images.map(img => img.url).filter(url => url.trim() !== ''), // Store only non-empty URLs
+      date: format(data.date, 'yyyy-MM-dd'), // Format date before sending
+      images: data.images.map(img => img.url).filter(url => url.trim() !== ''),
       tags: data.tags,
+      views: 0, // Initialize views
+      rsvpCounts: { going: 0, maybe: 0, not_going: 0 }, // Initialize RSVP counts
     };
-    onSubmit(newEvent);
+    onSubmit(newEventData);
   };
 
   return (
@@ -253,13 +254,13 @@ export default function EventForm({ onSubmit }: EventFormProps) {
             
             {/* Image URLs */}
             <FormItem>
-              <FormLabel>Images (Up to 5 URLs)</FormLabel>
+              <FormLabel>Images (Up to 5 URLs, first one is primary)</FormLabel>
               {imageFields.map((field, index) => (
                 <div key={field.id} className="flex items-center gap-2 mb-2">
                   <FormControl>
                      <Input
                         {...form.register(`images.${index}.url`)}
-                        placeholder={`Image URL ${index + 1}`}
+                        placeholder={`Image URL ${index + 1}${index === 0 ? ' (Primary)' : ''}`}
                       />
                   </FormControl>
                   {imageFields.length > 1 && (
@@ -292,9 +293,9 @@ export default function EventForm({ onSubmit }: EventFormProps) {
                 <Button type="button" variant="outline" onClick={handleAddTag}>Add Tag</Button>
               </div>
               <div className="flex flex-wrap gap-2 mb-2">
-                {tagFields.map((field, index) => (
-                  <Badge key={field.id} variant="secondary" className="flex items-center gap-1">
-                    <span>{form.getValues("tags")[index]}</span>
+                {tagFields.map((_field, index) => ( // _field is not directly used for value
+                  <Badge key={_field.id} variant="secondary" className="flex items-center gap-1">
+                    <span>{form.getValues("tags")[index]}</span> 
                     <button type="button" onClick={() => removeTag(index)} className="ml-1 focus:outline-none">
                       <MinusCircle className="h-3 w-3" />
                     </button>
@@ -342,4 +343,3 @@ export default function EventForm({ onSubmit }: EventFormProps) {
     </Card>
   );
 }
-

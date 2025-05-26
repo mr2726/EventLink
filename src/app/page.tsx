@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { useEventStorage } from '@/hooks/useEventStorage';
 import type { Event } from '@/lib/types';
-import { CalendarDays, Clock, MapPin, Tag, PartyPopper } from 'lucide-react';
+import { CalendarDays, Clock, MapPin, Tag, PartyPopper, BarChart3, Eye } from 'lucide-react';
 import Image from 'next/image';
 import { format } from 'date-fns';
 import { useAuth } from '@/contexts/AuthContext';
@@ -16,7 +16,7 @@ export default function HomePage() {
   const { events, isInitialized: eventsAreInitialized } = useEventStorage();
   const { isAuthenticated, isLoading: authIsLoading, user } = useAuth();
 
-  const recentEvents = events.slice(-3).reverse(); // Show latest 3 events
+  const recentEvents = events.slice().sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 6); // Show latest 6 events
 
   if (authIsLoading || !eventsAreInitialized) {
     return (
@@ -53,7 +53,7 @@ export default function HomePage() {
 
       {eventsAreInitialized && events.length > 0 && (
         <section>
-          <h2 className="text-3xl font-semibold text-center mb-8 text-primary">Recent Events</h2>
+          <h2 className="text-3xl font-semibold text-center mb-8 text-primary">Your Events</h2>
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {recentEvents.map((event) => (
               <Card key={event.id} className="flex flex-col overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300">
@@ -77,9 +77,13 @@ export default function HomePage() {
                 </CardHeader>
                 <CardContent className="flex-grow">
                   <p className="text-sm text-muted-foreground line-clamp-3 mb-2">{event.description}</p>
-                  <div className="flex items-center text-sm text-muted-foreground mb-4">
+                  <div className="flex items-center text-sm text-muted-foreground mb-1">
                     <MapPin className="mr-2 h-4 w-4 flex-shrink-0" />
                     <span className="truncate">{event.location}</span>
+                  </div>
+                   <div className="flex items-center text-sm text-muted-foreground mb-4">
+                    <Eye className="mr-2 h-4 w-4 flex-shrink-0" />
+                    <span>{event.views || 0} views</span>
                   </div>
                   {event.tags.length > 0 && (
                      <div className="flex items-center text-sm text-muted-foreground">
@@ -88,9 +92,15 @@ export default function HomePage() {
                      </div>
                   )}
                 </CardContent>
-                <CardFooter>
-                  <Button asChild variant="outline" className="w-full">
+                <CardFooter className="flex flex-col sm:flex-row gap-2">
+                  <Button asChild variant="outline" className="w-full sm:flex-1">
                     <Link href={`/event/${event.id}`}>View Invitation</Link>
+                  </Button>
+                  <Button asChild variant="secondary" className="w-full sm:flex-1">
+                    <Link href={`/event/${event.id}/stats`}>
+                        <BarChart3 className="mr-2 h-4 w-4"/>
+                        Stats
+                    </Link>
                   </Button>
                 </CardFooter>
               </Card>

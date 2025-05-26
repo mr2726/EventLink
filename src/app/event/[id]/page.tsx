@@ -19,13 +19,14 @@ import { Input } from '@/components/ui/input';
 export default function EventPage() {
   const params = useParams();
   const router = useRouter();
-  const { getEventById, saveRSVP, getRSVPForEvent, isInitialized } = useEventStorage();
+  const { getEventById, saveRSVP, getRSVPForEvent, incrementEventView, isInitialized } = useEventStorage();
   const { toast } = useToast();
 
   const [event, setEvent] = useState<Event | null>(null);
   const [currentRSVP, setCurrentRSVP] = useState<RSVPStatus | undefined>(undefined);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [eventUrl, setEventUrl] = useState<string>('');
+  const [viewIncremented, setViewIncremented] = useState(false);
 
   const eventId = typeof params.id === 'string' ? params.id : '';
 
@@ -42,12 +43,16 @@ export default function EventPage() {
         if (foundEvent.images.length > 0) {
           setSelectedImage(foundEvent.images[0]);
         }
+        if (!viewIncremented) {
+          incrementEventView(eventId);
+          setViewIncremented(true);
+        }
       } else {
         toast({ title: "Event not found", variant: "destructive" });
         router.push('/');
       }
     }
-  }, [eventId, getEventById, isInitialized, getRSVPForEvent, router, toast]);
+  }, [eventId, getEventById, isInitialized, getRSVPForEvent, incrementEventView, router, toast, viewIncremented]);
 
   const handleRSVP = (status: RSVPStatus) => {
     if (!event) return;
@@ -55,7 +60,7 @@ export default function EventPage() {
     setCurrentRSVP(status);
     toast({
       title: "RSVP Submitted!",
-      description: `You responded: ${status.charAt(0).toUpperCase() + status.slice(1)}`,
+      description: `You responded: ${status.charAt(0).toUpperCase() + status.slice(1).replace('_', ' ')}`,
     });
   };
 
@@ -228,4 +233,3 @@ export default function EventPage() {
     </div>
   );
 }
-

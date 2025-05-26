@@ -9,6 +9,12 @@ export interface Event {
   images: string[]; // Array of image URLs
   tags: string[];
   template: string; // e.g., 'default', 'modern', 'classic'
+  views: number;
+  rsvpCounts: {
+    going: number;
+    maybe: number;
+    not_going: number;
+  };
 }
 
 export type RSVPStatus = "going" | "maybe" | "not_going";
