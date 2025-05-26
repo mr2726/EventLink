@@ -52,7 +52,7 @@ const eventFormSchema = z.object({
   mapLink: z.string().url({ message: "Invalid URL for map link." }).optional().or(z.literal('')),
   images: z.array(z.object({ url: z.string().url({ message: "Invalid image URL." }) })).max(5, {message: "Maximum 5 images allowed."}),
   tags: z.array(z.string().min(1, {message: "Tag cannot be empty."})).max(10, {message: "Maximum 10 tags allowed."}),
-  template: z.string().min(1, { message: "Template selection is required." }), // Retained for now, can be removed if not used
+  // template: z.string().min(1, { message: "Template selection is required." }), // Commented out as superseded
   rsvpCollectFields: z.object({
     name: z.boolean().default(true),
     email: z.boolean().default(false),
@@ -81,9 +81,9 @@ export default function EventForm({ onSubmit }: EventFormProps) {
       location: '123 Main Street, Anytown',
       description: 'Join us for a fantastic time! This event will be full of fun, laughter, and great memories. We will have food, drinks, and entertainment for everyone. Don\'t miss out!',
       mapLink: '',
-      images: [{ url: '' }],
+      images: [{ url: 'https://placehold.co/600x400.png' }],
       tags: ['party', 'fun'],
-      template: 'default',
+      // template: 'default', // Commented out
       rsvpCollectFields: {
         name: true,
         email: false,
@@ -91,10 +91,10 @@ export default function EventForm({ onSubmit }: EventFormProps) {
       },
       allowEventSharing: true,
       customStyles: {
-        pageBackgroundColor: '#F8F9FA', // Light Gray
-        contentBackgroundColor: '#FFFFFF', // White
-        textColor: '#212529', // Dark Gray
-        iconAndTitleColor: '#FF7F50', // Coral (example primary)
+        pageBackgroundColor: '#F8F9FA', 
+        contentBackgroundColor: '#FFFFFF', 
+        textColor: '#212529', 
+        iconAndTitleColor: '#FF7F50', 
         fontEventName: 'inherit',
         fontTitles: 'inherit',
         fontDescription: 'inherit',
@@ -157,8 +157,11 @@ export default function EventForm({ onSubmit }: EventFormProps) {
       if (result.tags) {
         const currentTags = form.getValues("tags");
         const uniqueNewTags = result.tags.filter(tag => !currentTags.includes(tag));
+        // Ensure tags are strings for useFieldArray when replacing.
+        // useFieldArray expects an array of objects if the field type is an object array, 
+        // but for string arrays, it expects an array of strings.
         const combinedTags = [...currentTags, ...uniqueNewTags].slice(0, 10);
-        replaceTags(combinedTags.map(tag => ({value: tag}))); // Ensure tags are objects for useFieldArray
+        replaceTags(combinedTags); 
         toast({
           title: "Tags Suggested!",
           description: `${result.tags.length > 0 ? 'New tags added if space available.' : 'No new tags suggested or tags already exist.'}`,
@@ -183,6 +186,7 @@ export default function EventForm({ onSubmit }: EventFormProps) {
       images: data.images.map(img => img.url).filter(url => url && url.trim() !== ''),
       tags: data.tags,
       customStyles: data.customStyles,
+      // template: data.template, // Commented out
     };
     onSubmit(newEventData);
   };
@@ -208,7 +212,7 @@ export default function EventForm({ onSubmit }: EventFormProps) {
               <FormField control={form.control} name="mapLink" render={({ field }) => ( <FormItem> <FormLabel>Map Link (Optional)</FormLabel> <FormControl> <Input placeholder="e.g., https://maps.google.com/..." {...field} /> </FormControl> <FormMessage /> </FormItem> )}/>
               
               {/* Images and Tags */}
-              <FormItem> <FormLabel>Images (Up to 5 URLs, first one is primary)</FormLabel> {imageFields.map((item, index) => ( <div key={item.id} className="flex items-center gap-2 mb-2"> <FormControl> <Input {...form.register(`images.${index}.url`)} placeholder={`Image URL ${index + 1}${index === 0 ? ' (Primary)' : ''}`}/> </FormControl> {imageFields.length > 1 && ( <Button type="button" variant="ghost" size="icon" onClick={() => removeImage(index)} aria-label="Remove image"> <MinusCircle className="h-5 w-5 text-destructive" /> </Button> )} </div> ))} {imageFields.length < 5 && ( <Button type="button" variant="outline" size="sm" onClick={() => appendImage({ url: '' })}> <PlusCircle className="mr-2 h-4 w-4" /> Add Image URL </Button> )} <FormMessage>{form.formState.errors.images?.message || form.formState.errors.images?.root?.message}</FormMessage> </FormItem>
+              <FormItem> <FormLabel>Images (Up to 5 URLs, first one is primary)</FormLabel> {imageFields.map((item, index) => ( <div key={item.id} className="flex items-center gap-2 mb-2"> <FormControl> <Input {...form.register(`images.${index}.url`)} placeholder={`Image URL ${index + 1}${index === 0 ? ' (Primary)' : ''}`}/> </FormControl> {imageFields.length > 1 && ( <Button type="button" variant="ghost" size="icon" onClick={() => removeImage(index)} aria-label="Remove image"> <MinusCircle className="h-5 w-5 text-destructive" /> </Button> )} </div> ))} {imageFields.length < 5 && ( <Button type="button" variant="outline" size="sm" onClick={() => appendImage({ url: 'https://placehold.co/600x400.png' })}> <PlusCircle className="mr-2 h-4 w-4" /> Add Image URL </Button> )} <FormMessage>{form.formState.errors.images?.message || form.formState.errors.images?.root?.message}</FormMessage> </FormItem>
               <FormItem> <FormLabel>Tags (Up to 10)</FormLabel> <div className="flex items-center gap-2 mb-2"> <FormControl> <Input placeholder="Add a tag (e.g., birthday)" value={currentTagInput} onChange={(e) => setCurrentTagInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddTag();}}}/> </FormControl> <Button type="button" variant="outline" onClick={handleAddTag}>Add Tag</Button> </div> <div className="flex flex-wrap gap-2 mb-2"> {tagFields.map((item, index) => ( <Badge key={item.id} variant="secondary" className="flex items-center gap-1"> <span>{form.getValues("tags")[index]}</span> <button type="button" onClick={() => removeTag(index)} className="ml-1 focus:outline-none"> <MinusCircle className="h-3 w-3" /> </button> </Badge> ))} </div> <Button type="button" variant="outline" size="sm" onClick={handleSuggestTags} disabled={isSuggestingTags}> <Sparkles className="mr-2 h-4 w-4" /> {isSuggestingTags ? 'Suggesting...' : 'Suggest Tags with AI'} </Button> <FormMessage>{form.formState.errors.tags?.message || form.formState.errors.tags?.root?.message}</FormMessage> </FormItem>
 
               {/* RSVP and Sharing Options */}
@@ -221,10 +225,10 @@ export default function EventForm({ onSubmit }: EventFormProps) {
                 <h3 className="text-xl font-semibold flex items-center"><Palette className="mr-2 h-5 w-5 text-primary" />Color Customization</h3>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <FormField control={form.control} name="customStyles.pageBackgroundColor" render={({ field }) => ( <FormItem> <FormLabel>Page Background Color</FormLabel> <FormControl> <Input type="color" {...field} className="h-10 p-1"/> </FormControl> <FormMessage /> </FormItem> )}/>
-                <FormField control={form.control} name="customStyles.contentBackgroundColor" render={({ field }) => ( <FormItem> <FormLabel>Content Card Background</FormLabel> <FormControl> <Input type="color" {...field} className="h-10 p-1"/> </FormControl> <FormMessage /> </FormItem> )}/>
-                <FormField control={form.control} name="customStyles.textColor" render={({ field }) => ( <FormItem> <FormLabel>Main Text Color</FormLabel> <FormControl> <Input type="color" {...field} className="h-10 p-1"/> </FormControl> <FormMessage /> </FormItem> )}/>
-                <FormField control={form.control} name="customStyles.iconAndTitleColor" render={({ field }) => ( <FormItem> <FormLabel>Icon & Event Title Color</FormLabel> <FormControl> <Input type="color" {...field} className="h-10 p-1"/> </FormControl> <FormMessage /> </FormItem> )}/>
+                <FormField control={form.control} name="customStyles.pageBackgroundColor" render={({ field }) => ( <FormItem> <FormLabel>Page Background Color</FormLabel> <FormControl><Input type="color" {...field} className="h-10 p-1"/></FormControl> <FormMessage /> </FormItem> )}/>
+                <FormField control={form.control} name="customStyles.contentBackgroundColor" render={({ field }) => ( <FormItem> <FormLabel>Content Card Background</FormLabel> <FormControl><Input type="color" {...field} className="h-10 p-1"/></FormControl> <FormMessage /> </FormItem> )}/>
+                <FormField control={form.control} name="customStyles.textColor" render={({ field }) => ( <FormItem> <FormLabel>Main Text Color</FormLabel> <FormControl><Input type="color" {...field} className="h-10 p-1"/></FormControl> <FormMessage /> </FormItem> )}/>
+                <FormField control={form.control} name="customStyles.iconAndTitleColor" render={({ field }) => ( <FormItem> <FormLabel>Icon & Event Title Color</FormLabel> <FormControl><Input type="color" {...field} className="h-10 p-1"/></FormControl> <FormMessage /> </FormItem> )}/>
               </div>
               
               <Separator />
@@ -238,7 +242,6 @@ export default function EventForm({ onSubmit }: EventFormProps) {
               </div>
               <Separator />
 
-              {/* Removed template selection for now as it's superseded by direct customization */}
               {/* <FormField control={form.control} name="template" render={({ field }) => ( <FormItem> <FormLabel>Template</FormLabel> <Select onValueChange={field.onChange} defaultValue={field.value}> <FormControl> <SelectTrigger> <SelectValue placeholder="Select a template" /> </SelectTrigger> </FormControl> <SelectContent> <SelectItem value="default">Default</SelectItem> <SelectItem value="modern">Modern</SelectItem> <SelectItem value="classic">Classic</SelectItem> <SelectItem value="funky">Funky</SelectItem> </SelectContent> </Select> <FormDescription>Choose a visual style for your invitation page.</FormDescription> <FormMessage /> </FormItem> )}/> */}
 
               <Button type="submit" className="w-full" size="lg" disabled={form.formState.isSubmitting}>
