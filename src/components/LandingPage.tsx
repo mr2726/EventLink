@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { ArrowRight, Zap, Sparkles, Share2, Star, Mail } from 'lucide-react';
 import React, { useEffect, useRef } from 'react';
-import CodePresentation from './CodePresentation'; // Import the new component
+import Image from 'next/image'; // Import NextImage
 
 interface LandingPageProps {
   onGetStarted: () => void;
@@ -95,26 +95,40 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
   return (
     <div className="flex flex-col items-center w-full bg-background text-foreground">
       {/* Hero Section */}
-      <section className="relative w-full min-h-screen flex flex-col items-center justify-center text-center p-0 overflow-hidden">
-        <div className="absolute inset-0 z-0">
-          <CodePresentation />
-        </div>
-        {/* Optional: Add a very subtle overlay if code presentation text clashes too much with hero text */}
-        {/* <div className="absolute inset-0 bg-black/30 z-10"></div> */}
-        <div className="relative z-20 space-y-6 p-4 sm:p-8">
-          <h1 className="text-5xl sm:text-6xl md:text-7xl font-extrabold tracking-tight text-primary-foreground drop-shadow-xl">
-            EventLink
-          </h1>
-          <p className="text-xl sm:text-2xl md:text-3xl text-primary-foreground/90 max-w-3xl mx-auto leading-relaxed drop-shadow-lg">
-            Craft Beautiful Invitations. Share Your Moments. Effortlessly.
-          </p>
-          <Button
-            size="lg"
-            onClick={onGetStarted}
-            className="px-10 py-6 text-lg shadow-xl hover:shadow-2xl transition-shadow transform hover:scale-105 bg-primary hover:bg-primary/90 text-primary-foreground"
-          >
-            Get Started Now <ArrowRight className="ml-3 h-6 w-6" />
-          </Button>
+      <section className="w-full bg-gradient-to-br from-primary/10 via-background to-accent/10 py-16 sm:py-24 md:py-32">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex flex-col md:flex-row items-center gap-8 md:gap-12">
+            {/* Left Column: Text Content */}
+            <div className="md:w-1/2 text-center md:text-left space-y-6">
+              <h1 className="text-5xl sm:text-6xl md:text-7xl font-extrabold tracking-tight text-primary drop-shadow-lg">
+                EventLink
+              </h1>
+              <p className="text-xl sm:text-2xl text-foreground/80 max-w-xl mx-auto md:mx-0 leading-relaxed">
+                Craft Beautiful Invitations. Share Your Moments. Effortlessly.
+              </p>
+              <Button
+                size="lg"
+                onClick={onGetStarted}
+                className="px-10 py-6 text-lg shadow-xl hover:shadow-2xl transition-shadow transform hover:scale-105 bg-primary hover:bg-primary/90 text-primary-foreground"
+              >
+                Get Started Now <ArrowRight className="ml-3 h-6 w-6" />
+              </Button>
+            </div>
+
+            {/* Right Column: Image */}
+            <div className="md:w-1/2 mt-8 md:mt-0">
+              <div className="relative w-full max-w-xl mx-auto aspect-[4/3] rounded-xl overflow-hidden shadow-2xl">
+                <Image
+                  src="https://placehold.co/800x600.png"
+                  alt="EventLink platform showcase"
+                  layout="fill"
+                  objectFit="cover"
+                  data-ai-hint="modern workspace teamwork"
+                  priority
+                />
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -237,3 +251,5 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
     </div>
   );
 }
+
+    
