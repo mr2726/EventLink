@@ -6,10 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { ArrowRight, Zap, Sparkles, Share2, Star, Mail, Settings, CalendarPlus, Users } from 'lucide-react';
+import { ArrowRight, Zap, Sparkles, Share2, Star, Mail, Settings, CalendarPlus, Users, Check, HelpCircle, X } from 'lucide-react';
 import React, { useEffect, useRef } from 'react';
-// Removed NextImage as we are creating a custom illustration
-// import Image from 'next/image'; 
 
 interface LandingPageProps {
   onGetStarted: () => void;
@@ -130,13 +128,28 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
                   
                   {/* Mockup Content Area */}
                   <div className="w-5/6 mt-8 space-y-3">
-                    <div className="h-10 bg-primary/20 rounded-md animate-pulse"></div> {/* Event Title Placeholder */}
-                    <div className="aspect-video bg-accent/20 rounded-lg animate-pulse"></div> {/* Image Placeholder */}
-                    <div className="flex justify-around space-x-2 mt-2">
-                        <div className="h-8 w-1/3 bg-secondary/30 rounded-md animate-pulse"></div>
-                        <div className="h-8 w-1/3 bg-secondary/30 rounded-md animate-pulse"></div>
-                        <div className="h-8 w-1/3 bg-secondary/30 rounded-md animate-pulse"></div>
-                    </div> {/* RSVP Buttons Placeholder */}
+                    {/* Event Title Placeholder */}
+                    <div className="h-10 bg-primary/20 rounded-md animate-pulse flex items-center justify-center">
+                       <div className="w-3/4 h-4 bg-primary/40 rounded-sm"></div>
+                    </div>
+                    {/* Image Placeholder */}
+                    <div className="aspect-video bg-accent/20 rounded-lg animate-pulse flex items-center justify-center text-accent/50">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+                    </div>
+                     {/* RSVP Question Placeholder */}
+                    <div className="h-4 w-1/2 bg-muted/50 rounded-sm mx-auto animate-pulse mb-1"></div> {/* "Will you attend?" */}
+                    {/* RSVP Buttons Placeholder */}
+                    <div className="flex justify-around space-x-2 mt-1">
+                        <div className="h-8 w-1/3 bg-secondary/30 rounded-md animate-pulse flex items-center justify-center text-secondary-foreground/50">
+                            <Check className="h-4 w-4 mr-1"/> <span className="text-xs">Go</span>
+                        </div>
+                        <div className="h-8 w-1/3 bg-secondary/30 rounded-md animate-pulse flex items-center justify-center text-secondary-foreground/50">
+                            <HelpCircle className="h-4 w-4 mr-1"/> <span className="text-xs">Maybe</span>
+                        </div>
+                        <div className="h-8 w-1/3 bg-secondary/30 rounded-md animate-pulse flex items-center justify-center text-secondary-foreground/50">
+                            <X className="h-4 w-4 mr-1"/> <span className="text-xs">No</span>
+                        </div>
+                    </div>
                   </div>
                 </div>
 
@@ -299,5 +312,4 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
     </div>
   );
 }
-
     
