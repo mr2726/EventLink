@@ -6,10 +6,9 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { ArrowRight, Zap, Sparkles, Share2, Star, MessageCircle, Mail } from 'lucide-react';
-import Image from 'next/image';
-import { cn } from '@/lib/utils';
+import { ArrowRight, Zap, Sparkles, Share2, Star, Mail } from 'lucide-react';
 import React, { useEffect, useRef } from 'react';
+import CodePresentation from './CodePresentation'; // Import the new component
 
 interface LandingPageProps {
   onGetStarted: () => void;
@@ -76,12 +75,12 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
 
     let animationFrameId: number;
     let scrollAmount = 0;
-    const scrollSpeed = 0.5; // Adjust for speed
+    const scrollSpeed = 0.5; 
 
     const animateScroll = () => {
       scrollAmount += scrollSpeed;
       if (container.scrollWidth > 0 && scrollAmount >= container.scrollWidth / 2) {
-        scrollAmount = 0; // Reset to the beginning
+        scrollAmount = 0; 
       }
       container.scrollLeft = scrollAmount;
       animationFrameId = requestAnimationFrame(animateScroll);
@@ -96,23 +95,17 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
   return (
     <div className="flex flex-col items-center w-full bg-background text-foreground">
       {/* Hero Section */}
-      <section className="relative w-full min-h-screen flex flex-col items-center justify-center text-center p-4 sm:p-8">
-        <Image
-          src="https://placehold.co/1920x1080.png"
-          alt="Dynamic event planning backdrop"
-          layout="fill"
-          objectFit="cover"
-          quality={90}
-          priority
-          className="absolute inset-0 z-0"
-          data-ai-hint="modern event planning abstract"
-        />
-        <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-black/70 to-black/50 z-10"></div> {/* Dark overlay for text contrast */}
-        <div className="relative z-20 space-y-6">
-          <h1 className="text-5xl sm:text-6xl md:text-7xl font-extrabold tracking-tight text-primary-foreground">
+      <section className="relative w-full min-h-screen flex flex-col items-center justify-center text-center p-0 overflow-hidden">
+        <div className="absolute inset-0 z-0">
+          <CodePresentation />
+        </div>
+        {/* Optional: Add a very subtle overlay if code presentation text clashes too much with hero text */}
+        {/* <div className="absolute inset-0 bg-black/30 z-10"></div> */}
+        <div className="relative z-20 space-y-6 p-4 sm:p-8">
+          <h1 className="text-5xl sm:text-6xl md:text-7xl font-extrabold tracking-tight text-primary-foreground drop-shadow-xl">
             EventLink
           </h1>
-          <p className="text-xl sm:text-2xl md:text-3xl text-primary-foreground/90 max-w-3xl mx-auto leading-relaxed">
+          <p className="text-xl sm:text-2xl md:text-3xl text-primary-foreground/90 max-w-3xl mx-auto leading-relaxed drop-shadow-lg">
             Craft Beautiful Invitations. Share Your Moments. Effortlessly.
           </p>
           <Button
@@ -163,7 +156,7 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
                 <CardContent className="p-0 flex flex-col flex-grow">
                   <div className="flex mb-3">
                     {[...Array(5)].map((_, i) => (
-                      <Star key={i} className="w-4 h-4 text-yellow-400 fill-yellow-400" />
+                      <Star key={i} className="w-5 h-5 text-yellow-400 fill-yellow-400" />
                     ))}
                   </div>
                   <p className="text-muted-foreground mb-4 italic flex-grow">"{testimonial.quote}"</p>
@@ -207,8 +200,6 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
           </p>
           <form className="space-y-6 text-left" onSubmit={(e) => {
             e.preventDefault();
-            // Here you would typically handle form submission, e.g., send data to a backend
-            // For this prototype, we can just show a toast or log to console.
             const formData = new FormData(e.target as HTMLFormElement);
             const contactData = Object.fromEntries(formData.entries());
             console.log("Contact form submitted:", contactData);
