@@ -17,9 +17,11 @@ import {
   increment,
   Timestamp,
   arrayUnion,
+  deleteDoc, // Import deleteDoc
   type FieldValue
 } from 'firebase/firestore';
 import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from './use-toast';
 
 // Helper to convert Firestore Timestamps in event data
 const convertEventTimestamps = (eventData: any): Event => {
@@ -52,6 +54,8 @@ export function useEventStorage() {
   const [isLoadingEvents, setIsLoadingEvents] = useState(true); // For initial load of user's events
   const [isInitialized, setIsInitialized] = useState(false); // General initialization
   const { user } = useAuth();
+  const { toast } = useToast();
+
 
   // Fetch user's events for the homepage
   useEffect(() => {
@@ -96,7 +100,7 @@ export function useEventStorage() {
         attendees: [],
         allowEventSharing: newEventData.allowEventSharing !== undefined ? newEventData.allowEventSharing : true,
         rsvpCollectFields: newEventData.rsvpCollectFields || { name: true, email: false, phone: false },
-        customStyles: newEventData.customStyles || {}, // Ensure customStyles is an object
+        customStyles: newEventData.customStyles || {},
         createdAt: serverTimestamp() as FieldValue,
       };
       const docRef = await addDoc(collection(db, 'events'), eventToCreate);
@@ -105,7 +109,7 @@ export function useEventStorage() {
       if (newEventSnap.exists()) {
         const createdEvent = convertEventTimestamps({ id: newEventSnap.id, ...newEventSnap.data() });
         
-        if (user && user.id === createdEvent.userId) { // Ensure it's the current user's event
+        if (user && user.id === createdEvent.userId) { 
             setEvents(prevEvents => 
                 [createdEvent, ...prevEvents].sort((a,b) => {
                     const dateA = a.createdAt ? new Date(a.createdAt as string).getTime() : 0;
@@ -116,7 +120,9 @@ export function useEventStorage() {
         }
         return createdEvent;
       } else {
-        const clientSideCreatedEvent = { ...eventToCreate, id: docRef.id, createdAt: new Date().toISOString(), customStyles: eventToCreate.customStyles } as any; // Ensure customStyles is passed
+        // Fallback in case getDoc fails immediately (network issue, etc.)
+        // This is less likely with Firestore but good for robustness
+        const clientSideCreatedEvent = { ...eventToCreate, id: docRef.id, createdAt: new Date().toISOString() } as any;
         return convertEventTimestamps(clientSideCreatedEvent) as Event;
       }
 
@@ -175,7 +181,7 @@ export function useEventStorage() {
       } = {
         id: crypto.randomUUID(),
         status: newStatus,
-        submittedAt: Timestamp.now(), 
+        submittedAt: Timestamp.now(), // Changed from serverTimestamp()
       };
 
       if (details.name && details.name.trim() !== "") {
@@ -199,6 +205,22 @@ export function useEventStorage() {
     }
   }, []);
 
+  const deleteEvent = useCallback(async (eventId: string) => {
+    if (!eventId) {
+      throw new Error("Event ID is required to delete an event.");
+    }
+    try {
+      const eventDocRef = doc(db, 'events', eventId);
+      await deleteDoc(eventDocRef);
+      setEvents(prevEvents => prevEvents.filter(event => event.id !== eventId));
+      // Toast notification for success is handled in the component calling this
+    } catch (error) {
+      console.error("Error deleting event from Firestore:", error);
+      // Toast notification for error is handled in the component calling this
+      throw error; 
+    }
+  }, []);
+
 
   return {
     events,
@@ -207,6 +229,7 @@ export function useEventStorage() {
     getEventById,
     saveRSVP,
     incrementEventView,
+    deleteEvent, // Expose deleteEvent
     isInitialized
   };
 }

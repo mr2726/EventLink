@@ -6,19 +6,62 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { useEventStorage } from '@/hooks/useEventStorage';
 import type { Event } from '@/lib/types';
-import { CalendarDays, Clock, MapPin, Tag, PartyPopper, BarChart3, Eye } from 'lucide-react';
+import { CalendarDays, Clock, MapPin, Tag, PartyPopper, BarChart3, Eye, Pencil, Trash2 } from 'lucide-react';
 import Image from 'next/image';
 import { format } from 'date-fns';
 import { useAuth } from '@/contexts/AuthContext';
 import AuthForm from '@/components/AuthForm';
 import LandingPage from '@/components/LandingPage';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { useState } from 'react';
+import { useToast } from '@/hooks/use-toast';
 
 export default function HomePage() {
-  const { events: userEvents, isLoadingEvents } = useEventStorage();
+  const { events: userEvents, isLoadingEvents, deleteEvent } = useEventStorage();
   const { isAuthenticated, isLoading: authIsLoading, user, showAuthForm, setShowAuthForm } = useAuth();
+  const { toast } = useToast();
 
-  // userEvents are already filtered by userId in the hook
-  const recentEvents = userEvents.slice(0, 6); // Already sorted by hook
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [eventToDeleteId, setEventToDeleteId] = useState<string | null>(null);
+
+  const recentEvents = userEvents; // Already sorted by hook
+
+  const handleDeleteClick = (eventId: string) => {
+    setEventToDeleteId(eventId);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (eventToDeleteId) {
+      try {
+        await deleteEvent(eventToDeleteId);
+        toast({
+          title: "Event Deleted",
+          description: "The event has been successfully deleted.",
+        });
+      } catch (error) {
+        console.error("Failed to delete event:", error);
+        toast({
+          title: "Deletion Failed",
+          description: "Could not delete the event. Please try again.",
+          variant: "destructive",
+        });
+      } finally {
+        setIsDeleteDialogOpen(false);
+        setEventToDeleteId(null);
+      }
+    }
+  };
 
   if (authIsLoading || isLoadingEvents) {
     return (
@@ -43,7 +86,7 @@ export default function HomePage() {
 
   return (
     <div className="space-y-12">
-      <section className="text-center py-12 bg-gradient-to-br from-primary/20 via-background to-accent/20 rounded-xl shadow-lg">
+      <section className="text-center py-12 bg-gradient-to-br from-primary/10 via-background to-accent/10 rounded-xl shadow-lg">
         <PartyPopper className="mx-auto h-16 w-16 text-primary mb-6" />
         <h1 className="text-5xl font-extrabold tracking-tight text-primary mb-6">
           Welcome to EventLink, {user?.username}!
@@ -78,7 +121,7 @@ export default function HomePage() {
                   <CardTitle className="text-primary truncate">{event.name}</CardTitle>
                   <CardDescription className="flex items-center text-sm">
                     <CalendarDays className="mr-2 h-4 w-4" /> 
-                    {event.date ? format(new Date(event.date), "MMMM dd, yyyy") : 'Date N/A'}
+                    {event.date ? format(new Date(event.date + 'T00:00:00'), "MMMM dd, yyyy") : 'Date N/A'}
                     <Clock className="ml-4 mr-2 h-4 w-4" /> {event.time}
                   </CardDescription>
                 </CardHeader>
@@ -92,23 +135,41 @@ export default function HomePage() {
                     <Eye className="mr-2 h-4 w-4 flex-shrink-0" />
                     <span>{event.views || 0} views</span>
                   </div>
-                  {event.tags.length > 0 && (
+                  {event.tags && event.tags.length > 0 && (
                      <div className="flex items-center text-sm text-muted-foreground">
                         <Tag className="mr-2 h-4 w-4 flex-shrink-0" />
                         <span className="truncate">{event.tags.slice(0,3).join(', ')}</span>
                      </div>
                   )}
                 </CardContent>
-                <CardFooter className="flex flex-col sm:flex-row gap-2">
-                  <Button asChild variant="outline" className="w-full sm:flex-1">
-                    <Link href={`/event/${event.id}`}>View Invitation</Link>
-                  </Button>
-                  <Button asChild variant="secondary" className="w-full sm:flex-1">
-                    <Link href={`/event/${event.id}/stats`}>
-                        <BarChart3 className="mr-2 h-4 w-4"/>
-                        Stats
-                    </Link>
-                  </Button>
+                <CardFooter className="flex flex-col gap-2 pt-4">
+                  <div className="w-full flex flex-row gap-2">
+                    <Button asChild variant="outline" className="flex-1">
+                      <Link href={`/event/${event.id}`}>View Invitation</Link>
+                    </Button>
+                    <Button asChild variant="secondary" className="flex-1">
+                      <Link href={`/event/${event.id}/stats`}>
+                          <BarChart3 className="mr-2 h-4 w-4"/>
+                          Stats
+                      </Link>
+                    </Button>
+                  </div>
+                  <div className="w-full flex flex-row gap-2">
+                     <Button asChild variant="outline" className="flex-1 border-yellow-500/50 text-yellow-600 hover:bg-yellow-500/10 hover:text-yellow-700">
+                        <Link href={`/event/${event.id}/edit`}>
+                            <Pencil className="mr-2 h-4 w-4"/>
+                            Edit
+                        </Link>
+                     </Button>
+                    <Button 
+                        variant="outline" 
+                        className="flex-1 border-destructive/50 text-destructive hover:bg-destructive/10 hover:text-destructive/90"
+                        onClick={() => handleDeleteClick(event.id)}
+                    >
+                        <Trash2 className="mr-2 h-4 w-4"/>
+                        Delete
+                    </Button>
+                  </div>
                 </CardFooter>
               </Card>
             ))}
@@ -120,6 +181,23 @@ export default function HomePage() {
             <p className="text-lg text-muted-foreground">You haven't created any events yet. Get started by clicking the button above!</p>
         </section>
       )}
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete your event
+              and remove its data from our servers.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setEventToDeleteId(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmDelete}>
+              Yes, delete event
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
