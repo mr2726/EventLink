@@ -6,14 +6,13 @@ import { getFirestore } from 'firebase/firestore';
 // IMPORTANT: REPLACE WITH YOUR FIREBASE PROJECT CONFIGURATION
 // You can find this in your Firebase project settings.
 const firebaseConfig = {
-  apiKey: "AIzaSyA0FvSR6i8bJmwL0yfYBuaZ-zrIgttuZX0",
-  authDomain: "eventlink-27be7.firebaseapp.com",
-  projectId: "eventlink-27be7",
-  storageBucket: "eventlink-27be7.firebasestorage.app",
-  messagingSenderId: "461779247727",
-  appId: "1:461779247727:web:88a0754304644fda11639a"
+  apiKey: "AIzaSyBOPRXjOjTtTvOKCFkGXdgaSpYmtORf9Eg",
+  authDomain: "eventlink-wfbwp.firebaseapp.com",
+  projectId: "eventlink-wfbwp",
+  storageBucket: "eventlink-wfbwp.firebasestorage.app",
+  messagingSenderId: "571312020757",
+  appId: "1:571312020757:web:00c22ecb6424c6451b9d1c"
 };
-
 // Initialize Firebase
 let app;
 if (!getApps().length) {
