@@ -21,6 +21,10 @@ const loginSchema = z.object({
 const registerSchema = z.object({
   username: z.string().min(3, { message: "Username must be at least 3 characters." }),
   password: z.string().min(6, { message: "Password must be at least 6 characters." }),
+  confirmPassword: z.string().min(6, { message: "Please confirm your password." }),
+}).refine((data) => data.password === data.confirmPassword, {
+  message: "Passwords do not match.",
+  path: ["confirmPassword"], // Error will be shown on the confirmPassword field
 });
 
 type LoginFormValues = z.infer<typeof loginSchema>;
@@ -37,7 +41,7 @@ export default function AuthForm() {
 
   const registerForm = useForm<RegisterFormValues>({
     resolver: zodResolver(registerSchema),
-    defaultValues: { username: '', password: '' },
+    defaultValues: { username: '', password: '', confirmPassword: '' },
   });
 
   const onLoginSubmit = async (data: LoginFormValues) => {
@@ -48,6 +52,7 @@ export default function AuthForm() {
 
   const onRegisterSubmit = async (data: RegisterFormValues) => {
     setIsSubmitting(true);
+    // The register function in AuthContext only needs username and password
     await register(data.username, data.password);
     setIsSubmitting(false);
   };
@@ -126,12 +131,25 @@ export default function AuthForm() {
                   <Input 
                     id="register-password" 
                     type="password" 
-                    placeholder="Create a password" 
+                    placeholder="Create a password (min. 6 characters)" 
                     {...registerForm.register('password')} 
                     autoComplete="new-password"
                   />
                   {registerForm.formState.errors.password && (
                     <p className="text-sm text-destructive">{registerForm.formState.errors.password.message}</p>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="register-confirm-password">Confirm Password</Label>
+                  <Input 
+                    id="register-confirm-password" 
+                    type="password" 
+                    placeholder="Confirm your password" 
+                    {...registerForm.register('confirmPassword')} 
+                    autoComplete="new-password"
+                  />
+                  {registerForm.formState.errors.confirmPassword && (
+                    <p className="text-sm text-destructive">{registerForm.formState.errors.confirmPassword.message}</p>
                   )}
                 </div>
                 <Button type="submit" className="w-full" size="lg" disabled={isSubmitting}>
