@@ -13,12 +13,12 @@ export default function Header() {
   const pathname = usePathname();
 
   const handleLoginClick = () => {
-    // If on homepage, toggle auth form. Otherwise, navigate to homepage to show auth form.
     if (pathname === '/') {
       setShowAuthForm(true);
     } else {
       router.push('/');
-      // setShowAuthForm will be false by default on context or true if triggered after navigation
+      // Ensure auth form is shown after redirecting to home if it wasn't already the plan
+      setShowAuthForm(true); 
     }
   };
   
@@ -27,11 +27,19 @@ export default function Header() {
       if (pathname === '/') {
         setShowAuthForm(true);
       } else {
-        router.push('/'); // Redirect to home to show login/register
+        router.push('/'); 
+        setShowAuthForm(true);
       }
     } else {
       router.push('/create');
     }
+  };
+
+  const handleLogoClick = () => {
+    if (pathname === '/' && showAuthForm) {
+      setShowAuthForm(false);
+    }
+    // The Link component itself will handle navigation to "/"
   };
 
   const isLandingPageNoAuthForm = !isAuthenticated && pathname === '/' && !showAuthForm;
@@ -52,7 +60,11 @@ export default function Header() {
   return (
     <header className="bg-card border-b border-border shadow-sm sticky top-0 z-50">
       <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-        <Link href="/" className="text-2xl font-bold text-primary hover:opacity-80 transition-opacity">
+        <Link 
+          href="/" 
+          onClick={handleLogoClick}
+          className="text-2xl font-bold text-primary hover:opacity-80 transition-opacity"
+        >
           EventLink
         </Link>
         
