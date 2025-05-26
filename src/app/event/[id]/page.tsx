@@ -16,11 +16,13 @@ import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
+import { useAuth } from '@/contexts/AuthContext'; // Import useAuth
 
 export default function EventPage() {
   const params = useParams();
   const router = useRouter();
   const { getEventById, saveRSVP, getRSVPForEvent, incrementEventView, isInitialized } = useEventStorage();
+  const { user, isAuthenticated, isLoading: authIsLoading } = useAuth(); // Get auth state
   const { toast } = useToast();
 
   const [event, setEvent] = useState<Event | null>(null);
@@ -28,6 +30,7 @@ export default function EventPage() {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [eventUrl, setEventUrl] = useState<string>('');
   const [viewIncremented, setViewIncremented] = useState(false);
+  const [isOwner, setIsOwner] = useState(false); // State for ownership
 
   const [rsvpName, setRsvpName] = useState('');
   const [rsvpEmail, setRsvpEmail] = useState('');
@@ -40,7 +43,7 @@ export default function EventPage() {
       setEventUrl(window.location.href);
     }
 
-    if (isInitialized && eventId) {
+    if (isInitialized && eventId && !authIsLoading) { // Wait for auth loading
       const foundEvent = getEventById(eventId);
       if (foundEvent) {
         setEvent(foundEvent);
@@ -52,14 +55,19 @@ export default function EventPage() {
           incrementEventView(eventId);
           setViewIncremented(true);
         }
+        // Determine ownership
+        if (isAuthenticated && user && foundEvent.userId === user.id) {
+          setIsOwner(true);
+        } else {
+          setIsOwner(false);
+        }
       } else {
-        toast({ title: "Event not found", variant: "destructive", description: "Could not find the event details. It might have been removed or the link is incorrect." });
-        // Don't redirect immediately from public event page if event not found by this user's local storage
-        // User might have received a valid link but doesn't have the event in *their* local storage.
-        // For a real app with a backend, this behavior would be different.
+        // Event not found in local storage
+        setEvent(null); 
+        setIsOwner(false);
       }
     }
-  }, [eventId, getEventById, isInitialized, getRSVPForEvent, incrementEventView, toast, viewIncremented]);
+  }, [eventId, getEventById, isInitialized, getRSVPForEvent, incrementEventView, authIsLoading, isAuthenticated, user, viewIncremented]);
 
 
   const handleRSVP = (status: RSVPStatus) => {
@@ -101,6 +109,7 @@ export default function EventPage() {
       title: "RSVP Submitted!",
       description: `You responded: ${status.charAt(0).toUpperCase() + status.slice(1).replace('_', ' ')}`,
     });
+    // Clear fields after submission
     setRsvpName('');
     setRsvpEmail('');
     setRsvpPhone('');
@@ -117,7 +126,8 @@ export default function EventPage() {
       });
   };
 
-  if (!isInitialized) { // Only show global loading spinner if not initialized
+  // Show loading spinner if critical data isn't ready yet
+  if (isInitialized === false || authIsLoading) { 
     return (
       <div className="flex justify-center items-center min-h-screen">
         <div className="text-center">
@@ -125,13 +135,13 @@ export default function EventPage() {
             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
           </svg>
-          <p className="mt-4 text-lg text-muted-foreground">Initializing...</p>
+          <p className="mt-4 text-lg text-muted-foreground">Loading event details...</p>
         </div>
       </div>
     );
   }
 
-  if (!event) { // If initialized but event is still null (e.g., not found in local storage)
+  if (!event) { 
     return (
       <div className="flex justify-center items-center min-h-screen py-8">
         <Card className="w-full max-w-md text-center shadow-xl">
@@ -159,6 +169,7 @@ export default function EventPage() {
   try {
     const dateObj = new Date(event.date);
     if (!isNaN(dateObj.getTime())) { 
+       // Adjust for timezone offset to display the intended date
        const offsetDate = new Date(dateObj.valueOf() + dateObj.getTimezoneOffset() * 60 * 1000);
        formattedDate = format(offsetDate, "EEEE, MMMM dd, yyyy");
     }
@@ -168,17 +179,21 @@ export default function EventPage() {
 
 
   return (
-    <div className="max-w-4xl mx-auto py-8"> {/* Added py-8 for padding when header is absent */}
+    // The py-8 is now handled by the EventViewLayout if not owner,
+    // or by container padding if owner. This div mainly sets max-width.
+    <div className="max-w-4xl mx-auto"> 
       <Card className="overflow-hidden shadow-2xl">
         {selectedImage && (
           <div className="relative w-full h-64 md:h-96 bg-muted">
             <NextImage
               src={selectedImage}
               alt={event.name}
-              layout="fill"
-              objectFit="cover"
+              fill // Changed from layout="fill"
+              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw" // Example sizes
+              style={{ objectFit: "cover" }} // Changed from objectFit="cover"
               className="transition-opacity duration-300 ease-in-out"
               data-ai-hint="event highlight"
+              priority={true} // Prioritize the main image
             />
           </div>
         )}
@@ -186,7 +201,14 @@ export default function EventPage() {
           <div className="p-4 bg-card-foreground/5 flex gap-2 overflow-x-auto">
             {event.images.map((imgUrl, idx) => (
               <button key={idx} onClick={() => setSelectedImage(imgUrl)} className={cn("h-16 w-16 rounded-md overflow-hidden border-2 focus:outline-none focus:ring-2 focus:ring-primary", selectedImage === imgUrl ? "border-primary" : "border-transparent hover:border-primary/50")}>
-                <NextImage src={imgUrl} alt={`${event.name} thumbnail ${idx+1}`} width={64} height={64} objectFit="cover" data-ai-hint="event photo" />
+                <NextImage 
+                    src={imgUrl} 
+                    alt={`${event.name} thumbnail ${idx+1}`} 
+                    width={64} 
+                    height={64} 
+                    style={{ objectFit: "cover" }}  // Changed from objectFit="cover"
+                    data-ai-hint="event photo" 
+                />
               </button>
             ))}
           </div>
@@ -270,6 +292,7 @@ export default function EventPage() {
                       value={rsvpName} 
                       onChange={(e) => setRsvpName(e.target.value)} 
                       className="bg-background/70"
+                      required
                     />
                   </div>
                 )}
@@ -285,6 +308,7 @@ export default function EventPage() {
                       value={rsvpEmail} 
                       onChange={(e) => setRsvpEmail(e.target.value)} 
                       className="bg-background/70"
+                      required
                     />
                   </div>
                 )}
@@ -300,6 +324,7 @@ export default function EventPage() {
                       value={rsvpPhone} 
                       onChange={(e) => setRsvpPhone(e.target.value)} 
                       className="bg-background/70"
+                      required
                     />
                   </div>
                 )}
@@ -329,7 +354,8 @@ export default function EventPage() {
             )}
           </div>
           
-          {event.allowEventSharing && (
+          {/* Show share section if allowed by event creator OR if current user is the owner */}
+          {(event.allowEventSharing || isOwner) && (
             <div className="w-full space-y-3 pt-4 border-t border-border">
               <h3 className="text-xl font-semibold text-foreground flex items-center justify-center">
                 <Link2 className="mr-2 h-5 w-5 text-primary" /> Share this Event
@@ -344,11 +370,15 @@ export default function EventPage() {
           )}
         </CardFooter>
       </Card>
-      <div className="text-center mt-8">
-        <Button variant="link" asChild>
-            <Link href="/">Back to EventLink Home</Link>
-        </Button>
-      </div>
+      {/* Conditionally render "Back to Home" link if it's not the owner view (owner has full header) */}
+      {!isOwner && (
+        <div className="text-center mt-8">
+            <Button variant="link" asChild>
+                <Link href="/">Back to EventLink Home</Link>
+            </Button>
+        </div>
+      )}
     </div>
   );
 }
+
