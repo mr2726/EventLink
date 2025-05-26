@@ -6,9 +6,10 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { ArrowRight, Zap, Sparkles, Share2, Star, Mail } from 'lucide-react';
+import { ArrowRight, Zap, Sparkles, Share2, Star, Mail, Settings, CalendarPlus, Users } from 'lucide-react';
 import React, { useEffect, useRef } from 'react';
-import Image from 'next/image'; // Import NextImage
+// Removed NextImage as we are creating a custom illustration
+// import Image from 'next/image'; 
 
 interface LandingPageProps {
   onGetStarted: () => void;
@@ -115,17 +116,64 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
               </Button>
             </div>
 
-            {/* Right Column: Image */}
-            <div className="md:w-1/2 mt-8 md:mt-0">
-              <div className="relative w-full max-w-xl mx-auto aspect-[4/3] rounded-xl overflow-hidden shadow-2xl">
-                <Image
-                  src="https://placehold.co/800x600.png"
-                  alt="EventLink platform showcase"
-                  layout="fill"
-                  objectFit="cover"
-                  data-ai-hint="modern workspace teamwork"
-                  priority
-                />
+            {/* Right Column: Custom Illustration */}
+            <div className="md:w-1/2 mt-12 md:mt-0 flex justify-center items-center">
+              <div className="relative w-full max-w-lg aspect-[4/3] p-4">
+                {/* Central UI Mockup */}
+                <div className="relative bg-card border border-border rounded-xl shadow-2xl w-full h-full p-4 overflow-hidden flex flex-col items-center justify-center">
+                  {/* Mockup Header */}
+                  <div className="absolute top-0 left-0 right-0 h-8 bg-muted/70 flex items-center px-3 rounded-t-xl">
+                    <div className="w-3 h-3 bg-red-400 rounded-full mr-1.5"></div>
+                    <div className="w-3 h-3 bg-yellow-400 rounded-full mr-1.5"></div>
+                    <div className="w-3 h-3 bg-green-400 rounded-full"></div>
+                  </div>
+                  
+                  {/* Mockup Content Area */}
+                  <div className="w-5/6 mt-8 space-y-3">
+                    <div className="h-10 bg-primary/20 rounded-md animate-pulse"></div> {/* Event Title Placeholder */}
+                    <div className="aspect-video bg-accent/20 rounded-lg animate-pulse"></div> {/* Image Placeholder */}
+                    <div className="flex justify-around space-x-2 mt-2">
+                        <div className="h-8 w-1/3 bg-secondary/30 rounded-md animate-pulse"></div>
+                        <div className="h-8 w-1/3 bg-secondary/30 rounded-md animate-pulse"></div>
+                        <div className="h-8 w-1/3 bg-secondary/30 rounded-md animate-pulse"></div>
+                    </div> {/* RSVP Buttons Placeholder */}
+                  </div>
+                </div>
+
+                {/* Floating Decorative Elements */}
+                <div 
+                  className="absolute -top-8 -left-10 bg-primary/80 text-primary-foreground p-3 rounded-lg shadow-xl transform -rotate-12 hover:scale-110 transition-transform duration-300"
+                  data-ai-hint="create event"
+                >
+                  <CalendarPlus className="h-8 w-8" />
+                  <span className="mt-1 text-xs block font-medium">Create</span>
+                </div>
+                <div 
+                  className="absolute -bottom-10 -right-12 bg-accent/80 text-accent-foreground p-4 rounded-full shadow-xl transform rotate-6 hover:scale-110 transition-transform duration-300"
+                  data-ai-hint="share feature"
+                >
+                  <Share2 className="h-10 w-10" />
+                  <span className="mt-1 text-xs block font-medium text-center">Share</span>
+                </div>
+                 <div 
+                  className="absolute top-1/2 -translate-y-1/2 -right-16 bg-secondary/80 text-secondary-foreground p-3 rounded-lg shadow-xl transform rotate-[20deg] hover:scale-110 transition-transform duration-300"
+                  data-ai-hint="manage attendees"
+                >
+                  <Users className="h-8 w-8" />
+                  <span className="mt-1 text-xs block font-medium">Track</span>
+                </div>
+                <div 
+                    className="absolute top-1/4 left-[-4rem] bg-destructive/10 text-destructive p-2 rounded-full shadow-lg transform -rotate-[30deg] hover:scale-125 transition-transform duration-300 opacity-70"
+                    aria-hidden="true"
+                >
+                    <Sparkles className="h-5 w-5"/>
+                </div>
+                 <div 
+                    className="absolute bottom-1/4 right-[-3rem] bg-primary/10 text-primary p-2 rounded-full shadow-lg transform rotate-[30deg] hover:scale-125 transition-transform duration-300 opacity-70"
+                    aria-hidden="true"
+                >
+                    <Settings className="h-6 w-6"/>
+                </div>
               </div>
             </div>
           </div>
