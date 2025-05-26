@@ -11,10 +11,13 @@ import Image from 'next/image';
 import { format } from 'date-fns';
 import { useAuth } from '@/contexts/AuthContext';
 import AuthForm from '@/components/AuthForm';
+import LandingPage from '@/components/LandingPage'; // Import the new LandingPage component
+import { useState } from 'react'; // Import useState
 
 export default function HomePage() {
   const { events: allEvents, isInitialized: eventsAreInitialized } = useEventStorage();
   const { isAuthenticated, isLoading: authIsLoading, user } = useAuth();
+  const [showAuthForm, setShowAuthForm] = useState(false); // New state for controlling AuthForm visibility
 
   const userEvents = isAuthenticated && user 
     ? allEvents.filter(event => event.userId === user.id) 
@@ -37,9 +40,13 @@ export default function HomePage() {
   }
 
   if (!isAuthenticated) {
-    return <AuthForm />;
+    if (showAuthForm) {
+      return <AuthForm />;
+    }
+    return <LandingPage onGetStarted={() => setShowAuthForm(true)} />;
   }
 
+  // Authenticated user view
   return (
     <div className="space-y-12">
       <section className="text-center py-12 bg-gradient-to-br from-primary/20 via-background to-accent/20 rounded-xl shadow-lg">
