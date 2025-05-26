@@ -11,13 +11,12 @@ import Image from 'next/image';
 import { format } from 'date-fns';
 import { useAuth } from '@/contexts/AuthContext';
 import AuthForm from '@/components/AuthForm';
-import LandingPage from '@/components/LandingPage'; // Import the new LandingPage component
-import { useState } from 'react'; // Import useState
+import LandingPage from '@/components/LandingPage';
 
 export default function HomePage() {
   const { events: allEvents, isInitialized: eventsAreInitialized } = useEventStorage();
-  const { isAuthenticated, isLoading: authIsLoading, user } = useAuth();
-  const [showAuthForm, setShowAuthForm] = useState(false); // New state for controlling AuthForm visibility
+  // Use showAuthForm and setShowAuthForm from context
+  const { isAuthenticated, isLoading: authIsLoading, user, showAuthForm, setShowAuthForm } = useAuth();
 
   const userEvents = isAuthenticated && user 
     ? allEvents.filter(event => event.userId === user.id) 
@@ -39,10 +38,12 @@ export default function HomePage() {
     );
   }
 
+  // If not authenticated, decide whether to show LandingPage or AuthForm
   if (!isAuthenticated) {
     if (showAuthForm) {
       return <AuthForm />;
     }
+    // Pass setShowAuthForm to LandingPage so its "Get Started" button can trigger the AuthForm
     return <LandingPage onGetStarted={() => setShowAuthForm(true)} />;
   }
 
