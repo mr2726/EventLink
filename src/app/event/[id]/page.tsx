@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useParams, useRouter } from 'next/navigation';
@@ -7,11 +8,13 @@ import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { CalendarDays, Clock, MapPin, ExternalLink, Image as ImageIcon, Tag, CheckCircle, HelpCircle, XCircle, MessageSquare } from 'lucide-react';
+import { CalendarDays, Clock, MapPin, ExternalLink, Image as ImageIcon, Tag, CheckCircle, HelpCircle, XCircle, MessageSquare, Link2, Copy } from 'lucide-react';
 import NextImage from 'next/image';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
+import { cn } from '@/lib/utils';
+import { Input } from '@/components/ui/input';
 
 export default function EventPage() {
   const params = useParams();
@@ -22,10 +25,15 @@ export default function EventPage() {
   const [event, setEvent] = useState<Event | null>(null);
   const [currentRSVP, setCurrentRSVP] = useState<RSVPStatus | undefined>(undefined);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [eventUrl, setEventUrl] = useState<string>('');
 
   const eventId = typeof params.id === 'string' ? params.id : '';
 
   useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setEventUrl(window.location.href);
+    }
+
     if (isInitialized && eventId) {
       const foundEvent = getEventById(eventId);
       if (foundEvent) {
@@ -35,7 +43,6 @@ export default function EventPage() {
           setSelectedImage(foundEvent.images[0]);
         }
       } else {
-        // Handle event not found, e.g., redirect or show error
         toast({ title: "Event not found", variant: "destructive" });
         router.push('/');
       }
@@ -52,6 +59,17 @@ export default function EventPage() {
     });
   };
 
+  const handleCopyLink = () => {
+    navigator.clipboard.writeText(eventUrl)
+      .then(() => {
+        toast({ title: "Link Copied!", description: "Event link copied to clipboard." });
+      })
+      .catch(err => {
+        console.error("Failed to copy link: ", err);
+        toast({ title: "Copy Failed", description: "Could not copy link to clipboard.", variant: "destructive" });
+      });
+  };
+
   if (!isInitialized || !event) {
     return (
       <div className="flex justify-center items-center min-h-[calc(100vh-200px)]">
@@ -66,12 +84,10 @@ export default function EventPage() {
     );
   }
   
-  // Fallback for date if it's somehow invalid string
   let formattedDate = "Date not available";
   try {
     const dateObj = new Date(event.date);
-    if (!isNaN(dateObj.getTime())) { // Check if date is valid
-       // Adding timezone offset hack if date is parsed as UTC midnight by `new Date()`
+    if (!isNaN(dateObj.getTime())) { 
        const offsetDate = new Date(dateObj.valueOf() + dateObj.getTimezoneOffset() * 60 * 1000);
        formattedDate = format(offsetDate, "EEEE, MMMM dd, yyyy");
     }
@@ -165,7 +181,7 @@ export default function EventPage() {
           )}
         </CardContent>
 
-        <CardFooter className="bg-muted/50 p-6 md:p-8 border-t">
+        <CardFooter className="bg-muted/50 p-6 md:p-8 border-t flex-col space-y-6">
           <div className="w-full space-y-4 text-center">
             <h3 className="text-2xl font-semibold text-foreground">Will you attend?</h3>
             <div className="flex flex-col sm:flex-row justify-center gap-3">
@@ -190,6 +206,18 @@ export default function EventPage() {
               </p>
             )}
           </div>
+          
+          <div className="w-full space-y-3 pt-4 border-t border-border">
+            <h3 className="text-xl font-semibold text-foreground flex items-center justify-center">
+              <Link2 className="mr-2 h-5 w-5 text-primary" /> Share this Event
+            </h3>
+            <div className="flex items-center space-x-2">
+              <Input type="text" value={eventUrl} readOnly className="bg-background/70" aria-label="Event Link" />
+              <Button onClick={handleCopyLink} variant="outline" size="icon" aria-label="Copy event link">
+                <Copy className="h-5 w-5" />
+              </Button>
+            </div>
+          </div>
         </CardFooter>
       </Card>
       <div className="text-center mt-8">
@@ -200,3 +228,4 @@ export default function EventPage() {
     </div>
   );
 }
+
