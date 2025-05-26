@@ -8,7 +8,6 @@ import * as z from 'zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/contexts/AuthContext';
 import { LogIn, UserPlus } from 'lucide-react';
@@ -24,7 +23,7 @@ const registerSchema = z.object({
   confirmPassword: z.string().min(6, { message: "Please confirm your password." }),
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Passwords do not match.",
-  path: ["confirmPassword"], // Error will be shown on the confirmPassword field
+  path: ["confirmPassword"],
 });
 
 type LoginFormValues = z.infer<typeof loginSchema>;
@@ -33,6 +32,7 @@ type RegisterFormValues = z.infer<typeof registerSchema>;
 export default function AuthForm() {
   const { login, register } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
 
   const loginForm = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
@@ -52,7 +52,6 @@ export default function AuthForm() {
 
   const onRegisterSubmit = async (data: RegisterFormValues) => {
     setIsSubmitting(true);
-    // The register function in AuthContext only needs username and password
     await register(data.username, data.password);
     setIsSubmitting(false);
   };
@@ -60,22 +59,17 @@ export default function AuthForm() {
   return (
     <div className="flex justify-center items-center min-h-[calc(100vh-250px)]">
       <Card className="w-full max-w-md shadow-2xl">
-        <Tabs defaultValue="login" className="w-full">
-          <CardHeader className="text-center">
-            <TabsList className="grid w-full grid-cols-2 mx-auto">
-              <TabsTrigger value="login" className="text-base py-2.5">
-                <LogIn className="mr-2 h-5 w-5" /> Login
-              </TabsTrigger>
-              <TabsTrigger value="register" className="text-base py-2.5">
-                <UserPlus className="mr-2 h-5 w-5" /> Register
-              </TabsTrigger>
-            </TabsList>
-          </CardHeader>
-          
-          <TabsContent value="login">
+        {authMode === 'login' ? (
+          <>
+            <CardHeader className="text-center">
+              <CardTitle className="text-2xl font-bold text-primary mb-1 flex items-center justify-center">
+                <LogIn className="mr-2 h-6 w-6" /> Login
+              </CardTitle>
+              <CardDescription className="text-muted-foreground">
+                Enter your credentials to access your account.
+              </CardDescription>
+            </CardHeader>
             <CardContent className="space-y-6 pt-2 pb-6 px-6">
-              <CardTitle className="text-2xl font-bold text-center text-primary mb-1">Welcome Back!</CardTitle>
-              <CardDescription className="text-center text-muted-foreground mb-6">Enter your credentials to access your account.</CardDescription>
               <form onSubmit={loginForm.handleSubmit(onLoginSubmit)} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="login-username">Username</Label>
@@ -106,13 +100,25 @@ export default function AuthForm() {
                   {isSubmitting ? 'Logging in...' : 'Login'}
                 </Button>
               </form>
+              <p className="text-center text-sm text-muted-foreground">
+                Don't have an account?{' '}
+                <Button variant="link" className="p-0 h-auto font-semibold text-primary" onClick={() => {setAuthMode('register'); loginForm.reset(); registerForm.reset();}}>
+                  Register
+                </Button>
+              </p>
             </CardContent>
-          </TabsContent>
-
-          <TabsContent value="register">
+          </>
+        ) : (
+          <>
+            <CardHeader className="text-center">
+              <CardTitle className="text-2xl font-bold text-primary mb-1 flex items-center justify-center">
+                <UserPlus className="mr-2 h-6 w-6" /> Register
+              </CardTitle>
+              <CardDescription className="text-muted-foreground">
+                Join EventLink to start creating your events.
+              </CardDescription>
+            </CardHeader>
             <CardContent className="space-y-6 pt-2 pb-6 px-6">
-               <CardTitle className="text-2xl font-bold text-center text-primary mb-1">Create an Account</CardTitle>
-               <CardDescription className="text-center text-muted-foreground mb-6">Join EventLink to start creating your events.</CardDescription>
               <form onSubmit={registerForm.handleSubmit(onRegisterSubmit)} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="register-username">Username</Label>
@@ -156,9 +162,15 @@ export default function AuthForm() {
                   {isSubmitting ? 'Registering...' : 'Register'}
                 </Button>
               </form>
+              <p className="text-center text-sm text-muted-foreground">
+                Already have an account?{' '}
+                <Button variant="link" className="p-0 h-auto font-semibold text-primary" onClick={() => {setAuthMode('login'); loginForm.reset(); registerForm.reset();}}>
+                  Login
+                </Button>
+              </p>
             </CardContent>
-          </TabsContent>
-        </Tabs>
+          </>
+        )}
       </Card>
     </div>
   );
