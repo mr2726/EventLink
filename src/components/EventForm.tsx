@@ -51,7 +51,7 @@ const eventFormSchema = z.object({
   location: z.string().min(3, { message: "Location is required." }),
   description: z.string().min(10, { message: "Description must be at least 10 characters." }),
   mapLink: z.string().url({ message: "Invalid URL for map link." }).optional().or(z.literal('')),
-  images: z.array(z.object({ url: z.string().url({ message: "Invalid image URL." }) })).max(5, {message: "Maximum 5 images allowed."}),
+  images: z.array(z.object({ url: z.string().url({ message: "Invalid image URL." }).or(z.literal('')) })).max(5, {message: "Maximum 5 images allowed."}),
   tags: z.array(z.string().min(1, {message: "Tag cannot be empty."})).max(10, {message: "Maximum 10 tags allowed."}),
   rsvpCollectFields: z.object({
     name: z.boolean().default(true),
@@ -78,13 +78,14 @@ export default function EventForm({ onSubmit }: EventFormProps) {
   const form = useForm<EventFormValues>({
     resolver: zodResolver(eventFormSchema),
     defaultValues: {
-      name: 'My Awesome Event',
-      time: '12:00',
-      location: '123 Main Street, Anytown',
-      description: 'Join us for a fantastic time! This event will be full of fun, laughter, and great memories. We will have food, drinks, and entertainment for everyone. Don\'t miss out!',
+      name: '',
+      date: new Date(), // Keep default for date
+      time: '12:00', // Keep default for time
+      location: '',
+      description: '',
       mapLink: '',
-      images: [{ url: 'https://placehold.co/600x400.png' }],
-      tags: ['party', 'fun'],
+      images: [{ url: '' }], // Default with one empty image URL field
+      tags: [],
       rsvpCollectFields: {
         name: true,
         email: false,
@@ -92,10 +93,10 @@ export default function EventForm({ onSubmit }: EventFormProps) {
       },
       allowEventSharing: true,
       customStyles: {
-        pageBackgroundColor: '#F8F9FA',
-        contentBackgroundColor: '#FFFFFF',
-        textColor: '#212529',
-        iconAndTitleColor: '#10B981', 
+        pageBackgroundColor: '#F7FAFC', // Matches --background: hsl(210, 40%, 98%)
+        contentBackgroundColor: '#FFFFFF', // Matches --card: hsl(0, 0%, 100%)
+        textColor: '#363C4A', // Matches --foreground: hsl(220, 15%, 25%)
+        iconAndTitleColor: '#10B981', // Matches --primary: hsl(195, 85%, 42%)
         fontEventName: 'inherit',
         fontTitles: 'inherit',
         fontDescription: 'inherit',
@@ -203,7 +204,27 @@ export default function EventForm({ onSubmit }: EventFormProps) {
               
               <FormField control={form.control} name="name" render={({ field }) => ( <FormItem> <FormLabel>Event Name</FormLabel> <FormControl><Input placeholder="e.g., My Awesome Birthday Party" {...field} /></FormControl> <FormMessage /> </FormItem> )}/>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <FormField control={form.control} name="date" render={({ field }) => ( <FormItem className="flex flex-col"> <FormLabel>Event Date</FormLabel> <Popover> <PopoverTrigger asChild><Button variant={"outline"} className={cn("w-full pl-3 text-left font-normal",!field.value && "text-muted-foreground")}> {field.value ? format(field.value, "PPP") : <span>Pick a date</span>} <CalendarIcon className="ml-auto h-4 w-4 opacity-50" /> </Button></PopoverTrigger> <PopoverContent className="w-auto p-0" align="start"> <Calendar mode="single" selected={field.value} onSelect={field.onChange} disabled={(date) => date < new Date(new Date().setHours(0,0,0,0)) } initialFocus/> </PopoverContent> </Popover> <FormMessage /> </FormItem> )}/>
+                <FormField
+                  control={form.control}
+                  name="date"
+                  render={({ field }) => (
+                    <FormItem> {/* Removed flex flex-col for better alignment with sibling */}
+                      <FormLabel>Event Date</FormLabel>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button variant={"outline"} className={cn("w-full pl-3 text-left font-normal",!field.value && "text-muted-foreground")}>
+                            {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
+                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar mode="single" selected={field.value} onSelect={field.onChange} disabled={(date) => date < new Date(new Date().setHours(0,0,0,0)) } initialFocus/>
+                        </PopoverContent>
+                      </Popover>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
                 <FormField control={form.control} name="time" render={({ field }) => ( <FormItem> <FormLabel>Event Time</FormLabel> <FormControl><Input type="time" {...field} /></FormControl> <FormMessage /> </FormItem> )}/>
               </div>
               <FormField control={form.control} name="location" render={({ field }) => ( <FormItem> <FormLabel>Location</FormLabel> <FormControl><Input placeholder="e.g., 123 Main St, Anytown" {...field} /></FormControl> <FormMessage /> </FormItem> )}/>
@@ -211,7 +232,7 @@ export default function EventForm({ onSubmit }: EventFormProps) {
               <FormField control={form.control} name="mapLink" render={({ field }) => ( <FormItem> <FormLabel>Map Link (Optional)</FormLabel> <FormControl><Input placeholder="e.g., https://maps.google.com/..." {...field} /></FormControl> <FormMessage /> </FormItem> )}/>
 
               
-              <FormItem> <FormLabel>Images (Up to 5 URLs, first one is primary)</FormLabel> {imageFields.map((item, index) => ( <div key={item.id} className="flex items-center gap-2 mb-2"> <FormControl><Input {...form.register(`images.${index}.url`)} placeholder={`Image URL ${index + 1}${index === 0 ? ' (Primary)' : ''}`}/></FormControl> {imageFields.length > 1 && ( <Button type="button" variant="ghost" size="icon" onClick={() => removeImage(index)} aria-label="Remove image"> <MinusCircle className="h-5 w-5 text-destructive" /> </Button> )} </div> ))} {imageFields.length < 5 && ( <Button type="button" variant="outline" size="sm" onClick={() => appendImage({ url: 'https://placehold.co/600x400.png' })}> <PlusCircle className="mr-2 h-4 w-4" /> Add Image URL </Button> )} <FormMessage>{form.formState.errors.images?.message || form.formState.errors.images?.root?.message}</FormMessage> </FormItem>
+              <FormItem> <FormLabel>Images (Up to 5 URLs, first one is primary)</FormLabel> {imageFields.map((item, index) => ( <div key={item.id} className="flex items-center gap-2 mb-2"> <FormControl><Input {...form.register(`images.${index}.url`)} placeholder={`Image URL ${index + 1}${index === 0 ? ' (Primary)' : ''}`}/></FormControl> {imageFields.length > 1 && ( <Button type="button" variant="ghost" size="icon" onClick={() => removeImage(index)} aria-label="Remove image"> <MinusCircle className="h-5 w-5 text-destructive" /> </Button> )} </div> ))} {imageFields.length < 5 && ( <Button type="button" variant="outline" size="sm" onClick={() => appendImage({ url: '' })}> <PlusCircle className="mr-2 h-4 w-4" /> Add Image URL </Button> )} <FormMessage>{form.formState.errors.images?.message || form.formState.errors.images?.root?.message}</FormMessage> </FormItem>
               <FormItem> <FormLabel>Tags (Up to 10)</FormLabel> <div className="flex items-center gap-2 mb-2"> <FormControl><Input placeholder="Add a tag (e.g., birthday)" value={currentTagInput} onChange={(e) => setCurrentTagInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddTag();}}}/></FormControl> <Button type="button" variant="outline" onClick={handleAddTag}>Add Tag</Button> </div> <div className="flex flex-wrap gap-2 mb-2"> {tagFields.map((_item, index) => ( <Badge key={_item.id} variant="secondary" className="flex items-center gap-1"> <span>{form.getValues("tags")[index]}</span> <button type="button" onClick={() => removeTag(index)} className="ml-1 focus:outline-none"> <MinusCircle className="h-3 w-3" /> </button> </Badge> ))} </div> <Button type="button" variant="outline" size="sm" onClick={handleSuggestTags} disabled={isSuggestingTags}> <Sparkles className="mr-2 h-4 w-4" /> {isSuggestingTags ? 'Suggesting...' : 'Suggest Tags with AI'} </Button> <FormMessage>{form.formState.errors.tags?.message || form.formState.errors.tags?.root?.message}</FormMessage> </FormItem>
 
               
@@ -255,15 +276,15 @@ export default function EventForm({ onSubmit }: EventFormProps) {
         <div
           className="rounded-lg shadow-xl overflow-hidden border border-border p-4"
           style={{
-            backgroundColor: watchedCustomStyles?.pageBackgroundColor || '#F8F9FA',
+            backgroundColor: watchedCustomStyles?.pageBackgroundColor || '#F7FAFC', // Theme background
             minHeight: '600px'
           }}
         >
           <div
             className="max-w-md mx-auto rounded-lg shadow-lg p-6"
             style={{
-              backgroundColor: watchedCustomStyles?.contentBackgroundColor || '#FFFFFF',
-              color: watchedCustomStyles?.textColor || '#212529',
+              backgroundColor: watchedCustomStyles?.contentBackgroundColor || '#FFFFFF', // Theme card
+              color: watchedCustomStyles?.textColor || '#363C4A', // Theme foreground
             }}
           >
             
@@ -271,7 +292,7 @@ export default function EventForm({ onSubmit }: EventFormProps) {
               <h1
                 className="text-3xl font-bold"
                 style={{
-                  color: watchedCustomStyles?.iconAndTitleColor || '#10B981',
+                  color: watchedCustomStyles?.iconAndTitleColor || '#10B981', // Theme primary
                   fontFamily: watchedCustomStyles?.fontEventName || 'inherit',
                 }}
               >
@@ -290,7 +311,7 @@ export default function EventForm({ onSubmit }: EventFormProps) {
               <div className="flex items-start">
                 <CalendarDays
                   className="h-5 w-5 mr-3 flex-shrink-0"
-                  style={{ color: watchedCustomStyles?.iconAndTitleColor || '#10B981' }}
+                  style={{ color: watchedCustomStyles?.iconAndTitleColor || '#10B981' }} // Theme primary
                 />
                 <div>
                   <h3
@@ -309,7 +330,7 @@ export default function EventForm({ onSubmit }: EventFormProps) {
                   className="font-semibold mb-1 flex items-center"
                   style={{ fontFamily: watchedCustomStyles?.fontTitles || 'inherit' }}
                 >
-                  <Tag className="h-5 w-5 mr-2" style={{ color: watchedCustomStyles?.iconAndTitleColor || '#10B981' }}/>
+                  <Tag className="h-5 w-5 mr-2" style={{ color: watchedCustomStyles?.iconAndTitleColor || '#10B981' }}/> {/* Theme primary */}
                   About
                 </h3>
                 <p
@@ -330,7 +351,7 @@ export default function EventForm({ onSubmit }: EventFormProps) {
                 <Button
                     variant="default"
                     style={{
-                        backgroundColor: watchedCustomStyles?.iconAndTitleColor || '#10B981',
+                        backgroundColor: watchedCustomStyles?.iconAndTitleColor || '#10B981', // Theme primary
                         color: watchedCustomStyles?.contentBackgroundColor && watchedCustomStyles.iconAndTitleColor ? (parseInt(watchedCustomStyles.iconAndTitleColor.replace('#',''), 16) > 0x7FFFFF ? '#000000' : '#FFFFFF') : '#FFFFFF',
                         fontFamily: watchedCustomStyles?.fontTitles || 'inherit'
                     }}
