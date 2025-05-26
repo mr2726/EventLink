@@ -2,7 +2,7 @@
 "use client";
 
 import EventForm from '@/components/EventForm';
-import type { Event } from '@/lib/types'; // Omit will be handled by EventFormProps if needed
+import type { Event } from '@/lib/types';
 import { useEventStorage } from '@/hooks/useEventStorage';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
@@ -26,13 +26,28 @@ export default function CreateEventPage() {
     }
   }, [isLoading, isAuthenticated, router, toast]);
 
-  const handleCreateEvent = (eventData: Omit<Event, 'id' | 'attendees' | 'views' | 'rsvpCounts'>) => {
-    const createdEvent = addEvent(eventData); // addEvent now returns the full event object
+  const handleCreateEvent = (eventData: Omit<Event, 'id' | 'attendees' | 'userId' | 'views' | 'rsvpCounts'>) => {
+    if (!user) {
+      toast({
+        title: "Error",
+        description: "User not authenticated. Cannot create event.",
+        variant: "destructive",
+      });
+      return;
+    }
+    const fullEventData = {
+      ...eventData,
+      userId: user.id, // Add userId here
+    };
+    // The addEvent function in useEventStorage now expects Omit<Event, 'id' | 'attendees'>
+    // and eventData from EventForm matches Omit<Event, 'id' | 'attendees' | 'views' | 'rsvpCounts'> (without userId)
+    // We are now adding userId to eventData before passing to addEvent.
+    const createdEvent = addEvent(fullEventData as Omit<Event, 'id' | 'attendees'>);
     toast({
       title: "Event Created!",
       description: `Your event "${createdEvent.name}" has been successfully created.`,
     });
-    router.push(`/event/${createdEvent.id}`); // Use the ID from the returned event
+    router.push(`/event/${createdEvent.id}`);
   };
 
   if (isLoading || !isAuthenticated) {
@@ -51,12 +66,7 @@ export default function CreateEventPage() {
 
   return (
     <div>
-      {/* The onSubmit in EventFormProps expects Omit<Event, 'id' | 'attendees'>.
-          Our eventData comes from the form and aligns with that.
-          addEvent also expects Omit<Event, 'id' | 'attendees' | 'views' | 'rsvpCounts'> or similar,
-          and it correctly initializes views, rsvpCounts, and attendees.
-      */}
-      <EventForm onSubmit={handleCreateEvent as any} /> {/* Using as any to align types, can be refined */}
+      <EventForm onSubmit={handleCreateEvent as any} /> {/* Type assertion might need adjustment if EventForm's onSubmit expects a more specific type */}
     </div>
   );
 }

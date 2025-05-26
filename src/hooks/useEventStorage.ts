@@ -22,6 +22,7 @@ function getInitialEvents(): Event[] {
   
   return parsedEvents.map((event: any) => ({
     ...event,
+    userId: event.userId || 'unknown_user', // Add default for old events
     views: event.views || 0,
     rsvpCounts: event.rsvpCounts || { going: 0, maybe: 0, not_going: 0 },
     rsvpCollectFields: event.rsvpCollectFields || { name: false, email: false, phone: false },
@@ -69,7 +70,7 @@ export function useEventStorage() {
   const addEvent = useCallback((newEventData: Omit<Event, 'id' | 'attendees'>): Event => {
     const fullNewEvent: Event = {
       id: crypto.randomUUID(),
-      ...newEventData,
+      ...newEventData, // userId should be included here from the caller
       views: newEventData.views || 0,
       rsvpCounts: newEventData.rsvpCounts || { going: 0, maybe: 0, not_going: 0 },
       rsvpCollectFields: newEventData.rsvpCollectFields || { name: false, email: false, phone: false },

@@ -1,5 +1,6 @@
 export interface Event {
   id: string;
+  userId: string; // ID of the user who created the event
   name: string;
   date: string; // YYYY-MM-DD
   time: string; // HH:mm

@@ -13,10 +13,14 @@ import { useAuth } from '@/contexts/AuthContext';
 import AuthForm from '@/components/AuthForm';
 
 export default function HomePage() {
-  const { events, isInitialized: eventsAreInitialized } = useEventStorage();
+  const { events: allEvents, isInitialized: eventsAreInitialized } = useEventStorage();
   const { isAuthenticated, isLoading: authIsLoading, user } = useAuth();
 
-  const recentEvents = events.slice().sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 6); // Show latest 6 events
+  const userEvents = isAuthenticated && user 
+    ? allEvents.filter(event => event.userId === user.id) 
+    : [];
+
+  const recentEvents = userEvents.slice().sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 6);
 
   if (authIsLoading || !eventsAreInitialized) {
     return (
@@ -51,7 +55,7 @@ export default function HomePage() {
         </Button>
       </section>
 
-      {eventsAreInitialized && events.length > 0 && (
+      {eventsAreInitialized && recentEvents.length > 0 && (
         <section>
           <h2 className="text-3xl font-semibold text-center mb-8 text-primary">Your Events</h2>
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -108,9 +112,9 @@ export default function HomePage() {
           </div>
         </section>
       )}
-       {eventsAreInitialized && events.length === 0 && (
+       {eventsAreInitialized && recentEvents.length === 0 && isAuthenticated && (
         <section className="text-center py-10">
-            <p className="text-lg text-muted-foreground">No events created yet. Be the first to create one!</p>
+            <p className="text-lg text-muted-foreground">You haven't created any events yet. Get started by clicking the button above!</p>
         </section>
       )}
     </div>
