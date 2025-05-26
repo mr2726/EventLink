@@ -13,7 +13,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { CalendarIcon, Sparkles, PlusCircle, MinusCircle, Tag, User, AtSign, Phone, Share2, Palette, Type, Eye } from 'lucide-react';
+import { CalendarIcon, Sparkles, PlusCircle, MinusCircle, Tag, User, AtSign, Phone, Share2, Palette, Type, Eye, CalendarDays } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { suggestEventTags } from '@/ai/flows/suggest-event-tags';
@@ -158,7 +158,7 @@ export default function EventForm({ onSubmit }: EventFormProps) {
         const currentTags = form.getValues("tags");
         const uniqueNewTags = result.tags.filter(tag => !currentTags.includes(tag));
         const combinedTags = [...currentTags, ...uniqueNewTags].slice(0, 10);
-        replaceTags(combinedTags);
+        replaceTags(combinedTags.map(tag => ({value: tag}))); // Ensure tags are objects for useFieldArray
         toast({
           title: "Tags Suggested!",
           description: `${result.tags.length > 0 ? 'New tags added if space available.' : 'No new tags suggested or tags already exist.'}`,
@@ -343,3 +343,5 @@ export default function EventForm({ onSubmit }: EventFormProps) {
     </div>
   );
 }
+
+    
