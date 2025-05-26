@@ -7,18 +7,20 @@ import type { Event, Attendee } from '@/lib/types';
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, BarChart3, Eye, CheckCircle, HelpCircle, XCircle, Users, User, AtSign, Phone, CalendarClock } from 'lucide-react';
+import { BarChart3, Eye, CheckCircle, HelpCircle, XCircle, Users, User, AtSign, Phone, CalendarClock } from 'lucide-react';
 import Link from 'next/link';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns'; // Keep format for submittedAt
 import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/hooks/use-toast';
 
 export default function EventStatsPage() {
   const params = useParams();
   const router = useRouter();
   const { getEventById } = useEventStorage();
   const { user, isAuthenticated, isLoading: authIsLoading } = useAuth();
+  const { toast } = useToast();
 
   const [event, setEvent] = useState<Event | null>(null);
   const [isLoadingEvent, setIsLoadingEvent] = useState(true);
@@ -52,8 +54,10 @@ export default function EventStatsPage() {
          setIsLoadingEvent(false);
       }
     }
-    fetchEventDetails();
-  }, [eventId, getEventById, authIsLoading, isAuthenticated, user, router]);
+    if (typeof window !== 'undefined') { // Ensure toast is called client-side
+        fetchEventDetails();
+    }
+  }, [eventId, getEventById, authIsLoading, isAuthenticated, user, router, toast]);
 
 
   if (isLoadingEvent || authIsLoading) {
@@ -93,10 +97,7 @@ export default function EventStatsPage() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      <Button variant="outline" onClick={() => router.back()} className="mb-4 print:hidden">
-        <ArrowLeft className="mr-2 h-4 w-4" /> Back
-      </Button>
-
+      {/* Back button removed */}
       <Card className="shadow-xl">
         <CardHeader>
           <div className="flex items-center justify-between">
@@ -172,7 +173,11 @@ export default function EventStatsPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {event.attendees.sort((a,b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime()).map((attendee: Attendee, index: number) => (
+                    {event.attendees.sort((a,b) => {
+                        const dateA = a.submittedAt ? new Date(a.submittedAt as string).getTime() : 0;
+                        const dateB = b.submittedAt ? new Date(b.submittedAt as string).getTime() : 0;
+                        return dateB - dateA;
+                     }).map((attendee: Attendee, index: number) => (
                       <TableRow key={attendee.id || index}> {/* Use index as fallback key if id isn't guaranteed */}
                         {event.rsvpCollectFields?.name && <TableCell>{attendee.name || 'N/A'}</TableCell>}
                         {event.rsvpCollectFields?.email && <TableCell>{attendee.email || 'N/A'}</TableCell>}
@@ -187,7 +192,7 @@ export default function EventStatsPage() {
                           </Badge>
                         </TableCell>
                         <TableCell className="text-right">
-                          {attendee.submittedAt ? format(new Date(attendee.submittedAt), "PPpp") : 'N/A'}
+                          {attendee.submittedAt ? format(new Date(attendee.submittedAt as string), "PPpp") : 'N/A'}
                         </TableCell>
                       </TableRow>
                     ))}
