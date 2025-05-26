@@ -7,11 +7,11 @@ import type { Event, Attendee } from '@/lib/types';
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { BarChart3, Eye, CheckCircle, HelpCircle, XCircle, Users, User, AtSign, Phone, CalendarClock } from 'lucide-react';
+import { BarChart3, Eye, CheckCircle, HelpCircle, XCircle, Users, User, AtSign, Phone, CalendarClock, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from '@/components/ui/badge';
-import { format } from 'date-fns'; // Keep format for submittedAt
+import { format } from 'date-fns'; 
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 
@@ -38,23 +38,21 @@ export default function EventStatsPage() {
           if (isAuthenticated && user && foundEvent.userId === user.id) {
             setIsOwner(true);
           } else {
-            // If not authenticated or not the owner, redirect.
-            // This page should be owner-only.
             toast({ title: "Access Denied", description: "You do not have permission to view these statistics.", variant: "destructive" });
-            router.push(`/event/${eventId}`); // or router.push('/');
+            router.push(`/event/${eventId}`);
             setIsOwner(false);
           }
         } else {
-          // Event not found
           toast({ title: "Event Not Found", description: "The event statistics could not be loaded.", variant: "destructive" });
           router.push('/');
         }
         setIsLoadingEvent(false);
-      } else if (!eventId) {
+      } else if (!eventId && !authIsLoading) {
          setIsLoadingEvent(false);
+         router.push('/'); 
       }
     }
-    if (typeof window !== 'undefined') { // Ensure toast is called client-side
+    if (typeof window !== 'undefined') { 
         fetchEventDetails();
     }
   }, [eventId, getEventById, authIsLoading, isAuthenticated, user, router, toast]);
@@ -75,8 +73,6 @@ export default function EventStatsPage() {
   }
 
   if (!event || !isOwner) {
-     // This case should ideally be handled by the redirect in useEffect,
-     // but as a fallback:
     return (
       <div className="flex justify-center items-center min-h-[calc(100vh-200px)]">
          <p className="text-lg text-destructive">Access denied or event not found.</p>
@@ -84,7 +80,6 @@ export default function EventStatsPage() {
     );
   }
   
-  // Ensure rsvpCounts exists
   const rsvpCounts = event.rsvpCounts || { going: 0, maybe: 0, not_going: 0 };
 
   const rsvpData = [
@@ -97,7 +92,14 @@ export default function EventStatsPage() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      {/* Back button removed */}
+      <div className="mb-6 print:hidden">
+        <Button asChild variant="outline">
+          <Link href={`/event/${event.id}`}>
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back to Event Page
+          </Link>
+        </Button>
+      </div>
       <Card className="shadow-xl">
         <CardHeader>
           <div className="flex items-center justify-between">
@@ -178,7 +180,7 @@ export default function EventStatsPage() {
                         const dateB = b.submittedAt ? new Date(b.submittedAt as string).getTime() : 0;
                         return dateB - dateA;
                      }).map((attendee: Attendee, index: number) => (
-                      <TableRow key={attendee.id || index}> {/* Use index as fallback key if id isn't guaranteed */}
+                      <TableRow key={attendee.id || index}>
                         {event.rsvpCollectFields?.name && <TableCell>{attendee.name || 'N/A'}</TableCell>}
                         {event.rsvpCollectFields?.email && <TableCell>{attendee.email || 'N/A'}</TableCell>}
                         {event.rsvpCollectFields?.phone && <TableCell>{attendee.phone || 'N/A'}</TableCell>}

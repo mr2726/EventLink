@@ -26,25 +26,25 @@ export default function RootLayout({
 }>) {
   const pathname = usePathname();
 
-  // Regex to match /event/[id] but not /event/[id]/anything-else
-  const isPublicEventViewPage = /^\/event\/[^/]+$/.test(pathname);
+  // This regex now matches /event/[id] and /event/[id]/any/sub/path
+  const isEventSpecificPath = /^\/event\/[^/]+(\/.*)?$/.test(pathname);
 
   return (
     <html lang="en">
       <head>
         <title>EventLink - Your Personalized Event Invitations</title>
         <meta name="description" content="Create and share beautiful event invitation pages with EventLink." />
-        <link rel="icon" href="/favicon.ico" sizes="any" /> {/* Basic favicon example */}
+        <link rel="icon" href="/favicon.ico" sizes="any" />
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased flex flex-col min-h-screen`}
       >
         <AuthProvider>
-          {!isPublicEventViewPage && <Header />}
-          <main className={`flex-grow ${isPublicEventViewPage ? '' : 'container mx-auto px-4 py-8'}`}>
+          {!isEventSpecificPath && <Header />}
+          <main className={`flex-grow ${isEventSpecificPath ? '' : 'container mx-auto px-4 py-8'}`}>
             {children}
           </main>
-          {!isPublicEventViewPage && <Footer />}
+          {!isEventSpecificPath && <Footer />}
           <Toaster />
         </AuthProvider>
       </body>
