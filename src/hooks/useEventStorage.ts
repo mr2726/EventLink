@@ -10,7 +10,15 @@ const RSVPS_STORAGE_KEY = 'eventlink_rsvps'; // For session-based RSVP feedback
 function getInitialEvents(): Event[] {
   if (typeof window === 'undefined') return [];
   const storedEvents = localStorage.getItem(EVENTS_STORAGE_KEY);
-  const parsedEvents = storedEvents ? JSON.parse(storedEvents) : [];
+  let parsedEvents = [];
+  if (storedEvents) {
+    try {
+      parsedEvents = JSON.parse(storedEvents);
+    } catch (e) {
+      console.error("Failed to parse events from localStorage", e);
+      parsedEvents = [];
+    }
+  }
   
   return parsedEvents.map((event: any) => ({
     ...event,
@@ -24,7 +32,15 @@ function getInitialEvents(): Event[] {
 function getInitialRSVPs(): EventRSVP[] { // For session-based RSVP feedback
   if (typeof window === 'undefined') return [];
   const storedRSVPs = localStorage.getItem(RSVPS_STORAGE_KEY);
-  return storedRSVPs ? JSON.parse(storedRSVPs) : [];
+   if (storedRSVPs) {
+    try {
+      return JSON.parse(storedRSVPs);
+    } catch (e) {
+      console.error("Failed to parse RSVPs from localStorage", e);
+      return [];
+    }
+  }
+  return [];
 }
 
 export function useEventStorage() {
@@ -50,7 +66,7 @@ export function useEventStorage() {
     }
   }, [rsvps, isInitialized]);
 
-  const addEvent = useCallback((newEventData: Omit<Event, 'id' | 'attendees'>) => {
+  const addEvent = useCallback((newEventData: Omit<Event, 'id' | 'attendees'>): Event => {
     const fullNewEvent: Event = {
       id: crypto.randomUUID(),
       ...newEventData,
@@ -60,6 +76,7 @@ export function useEventStorage() {
       attendees: [], // Initialize attendees
     };
     setEvents((prevEvents) => [...prevEvents, fullNewEvent]);
+    return fullNewEvent;
   }, []);
   
 
@@ -98,7 +115,9 @@ export function useEventStorage() {
           // Recalculate rsvpCounts based on the updated attendees list
           const newRsvpCounts = { going: 0, maybe: 0, not_going: 0 };
           updatedAttendees.forEach(attendee => {
-            newRsvpCounts[attendee.status]++;
+            if (attendee.status) { // Ensure status is defined
+                 newRsvpCounts[attendee.status]++;
+            }
           });
           
           return { ...event, attendees: updatedAttendees, rsvpCounts: newRsvpCounts };

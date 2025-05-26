@@ -8,7 +8,8 @@ import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { CalendarDays, Clock, MapPin, ExternalLink, Image as ImageIcon, Tag, CheckCircle, HelpCircle, XCircle, MessageSquare, Link2, Copy } from 'lucide-react';
+import { Label } from '@/components/ui/label';
+import { CalendarDays, Clock, MapPin, ExternalLink, Image as ImageIcon, Tag, CheckCircle, HelpCircle, XCircle, MessageSquare, Link2, Copy, User, AtSign, Phone } from 'lucide-react';
 import NextImage from 'next/image';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
@@ -28,6 +29,11 @@ export default function EventPage() {
   const [eventUrl, setEventUrl] = useState<string>('');
   const [viewIncremented, setViewIncremented] = useState(false);
 
+  // State for RSVP input fields
+  const [rsvpName, setRsvpName] = useState('');
+  const [rsvpEmail, setRsvpEmail] = useState('');
+  const [rsvpPhone, setRsvpPhone] = useState('');
+
   const eventId = typeof params.id === 'string' ? params.id : '';
 
   useEffect(() => {
@@ -39,7 +45,7 @@ export default function EventPage() {
       const foundEvent = getEventById(eventId);
       if (foundEvent) {
         setEvent(foundEvent);
-        setCurrentRSVP(getRSVPForEvent(eventId));
+        setCurrentRSVP(getRSVPForEvent(eventId)); // This gets the *session's* last RSVP status
         if (foundEvent.images.length > 0) {
           setSelectedImage(foundEvent.images[0]);
         }
@@ -48,7 +54,7 @@ export default function EventPage() {
           setViewIncremented(true);
         }
       } else {
-        toast({ title: "Event not found", variant: "destructive" });
+        toast({ title: "Event not found", variant: "destructive", description: "Could not find the event details. It might have been removed or the link is incorrect." });
         router.push('/');
       }
     }
@@ -56,12 +62,47 @@ export default function EventPage() {
 
   const handleRSVP = (status: RSVPStatus) => {
     if (!event) return;
-    saveRSVP(event.id, status);
-    setCurrentRSVP(status);
+
+    const details: { name?: string; email?: string; phone?: string } = {};
+    let canSubmit = true;
+
+    if (event.rsvpCollectFields.name) {
+      if (!rsvpName.trim()) {
+        toast({ title: "Name Required", description: "Please enter your name to RSVP.", variant: "destructive" });
+        canSubmit = false;
+      } else {
+        details.name = rsvpName.trim();
+      }
+    }
+    if (event.rsvpCollectFields.email) {
+      if (!rsvpEmail.trim()) { // Basic check, could add email format validation
+        toast({ title: "Email Required", description: "Please enter your email to RSVP.", variant: "destructive" });
+        canSubmit = false;
+      } else {
+        details.email = rsvpEmail.trim();
+      }
+    }
+    if (event.rsvpCollectFields.phone) {
+      if (!rsvpPhone.trim()) {
+        toast({ title: "Phone Required", description: "Please enter your phone number to RSVP.", variant: "destructive" });
+        canSubmit = false;
+      } else {
+        details.phone = rsvpPhone.trim();
+      }
+    }
+
+    if (!canSubmit) return;
+
+    saveRSVP(event.id, status, details);
+    setCurrentRSVP(status); // Update UI for current session's choice
     toast({
       title: "RSVP Submitted!",
       description: `You responded: ${status.charAt(0).toUpperCase() + status.slice(1).replace('_', ' ')}`,
     });
+    // Optionally clear fields after submission
+    setRsvpName('');
+    setRsvpEmail('');
+    setRsvpPhone('');
   };
 
   const handleCopyLink = () => {
@@ -83,7 +124,7 @@ export default function EventPage() {
             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
           </svg>
-          <p className="mt-4 text-lg text-muted-foreground">Loading event details...</p>
+          <p className="mt-4 text-lg text-muted-foreground">{!isInitialized ? "Initializing..." : "Loading event details..."}</p>
         </div>
       </div>
     );
@@ -188,7 +229,59 @@ export default function EventPage() {
 
         <CardFooter className="bg-muted/50 p-6 md:p-8 border-t flex-col space-y-6">
           <div className="w-full space-y-4 text-center">
-            <h3 className="text-2xl font-semibold text-foreground">Will you attend?</h3>
+            <h3 className="text-2xl font-semibold text-foreground mb-4">Will you attend?</h3>
+
+            {/* RSVP Input Fields */}
+            {(event.rsvpCollectFields.name || event.rsvpCollectFields.email || event.rsvpCollectFields.phone) && (
+              <div className="space-y-4 mb-6 max-w-md mx-auto text-left">
+                {event.rsvpCollectFields.name && (
+                  <div className="space-y-1">
+                    <Label htmlFor="rsvp-name" className="flex items-center text-sm font-medium text-foreground">
+                      <User className="mr-2 h-4 w-4 text-primary" /> Name
+                    </Label>
+                    <Input 
+                      id="rsvp-name" 
+                      type="text" 
+                      placeholder="Your Name" 
+                      value={rsvpName} 
+                      onChange={(e) => setRsvpName(e.target.value)} 
+                      className="bg-background/70"
+                    />
+                  </div>
+                )}
+                {event.rsvpCollectFields.email && (
+                  <div className="space-y-1">
+                    <Label htmlFor="rsvp-email" className="flex items-center text-sm font-medium text-foreground">
+                      <AtSign className="mr-2 h-4 w-4 text-primary" /> Email
+                    </Label>
+                    <Input 
+                      id="rsvp-email" 
+                      type="email" 
+                      placeholder="your.email@example.com" 
+                      value={rsvpEmail} 
+                      onChange={(e) => setRsvpEmail(e.target.value)} 
+                      className="bg-background/70"
+                    />
+                  </div>
+                )}
+                {event.rsvpCollectFields.phone && (
+                  <div className="space-y-1">
+                    <Label htmlFor="rsvp-phone" className="flex items-center text-sm font-medium text-foreground">
+                      <Phone className="mr-2 h-4 w-4 text-primary" /> Phone Number
+                    </Label>
+                    <Input 
+                      id="rsvp-phone" 
+                      type="tel" 
+                      placeholder="Your Phone Number" 
+                      value={rsvpPhone} 
+                      onChange={(e) => setRsvpPhone(e.target.value)} 
+                      className="bg-background/70"
+                    />
+                  </div>
+                )}
+              </div>
+            )}
+            
             <div className="flex flex-col sm:flex-row justify-center gap-3">
               {(['going', 'maybe', 'not_going'] as RSVPStatus[]).map((status) => (
                 <Button
@@ -233,3 +326,4 @@ export default function EventPage() {
     </div>
   );
 }
+
