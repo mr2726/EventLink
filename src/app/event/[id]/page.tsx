@@ -16,25 +16,27 @@ import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
-import { useAuth } from '@/contexts/AuthContext'; // Import useAuth
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function EventPage() {
   const params = useParams();
   const router = useRouter();
-  const { getEventById, saveRSVP, getRSVPForEvent, incrementEventView, isInitialized } = useEventStorage();
-  const { user, isAuthenticated, isLoading: authIsLoading } = useAuth(); // Get auth state
+  const { getEventById, saveRSVP, incrementEventView } = useEventStorage();
+  const { user, isAuthenticated, isLoading: authIsLoading } = useAuth();
   const { toast } = useToast();
 
   const [event, setEvent] = useState<Event | null>(null);
-  const [currentRSVP, setCurrentRSVP] = useState<RSVPStatus | undefined>(undefined);
+  const [isLoadingEvent, setIsLoadingEvent] = useState(true);
+  const [currentRSVPStatusForSession, setCurrentRSVPStatusForSession] = useState<RSVPStatus | undefined>(undefined);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [eventUrl, setEventUrl] = useState<string>('');
   const [viewIncremented, setViewIncremented] = useState(false);
-  const [isOwner, setIsOwner] = useState(false); // State for ownership
+  const [isOwner, setIsOwner] = useState(false);
 
   const [rsvpName, setRsvpName] = useState('');
   const [rsvpEmail, setRsvpEmail] = useState('');
   const [rsvpPhone, setRsvpPhone] = useState('');
+  const [isSubmittingRSVP, setIsSubmittingRSVP] = useState(false);
 
   const eventId = typeof params.id === 'string' ? params.id : '';
 
@@ -43,35 +45,41 @@ export default function EventPage() {
       setEventUrl(window.location.href);
     }
 
-    if (isInitialized && eventId && !authIsLoading) { // Wait for auth loading
-      const foundEvent = getEventById(eventId);
-      if (foundEvent) {
-        setEvent(foundEvent);
-        setCurrentRSVP(getRSVPForEvent(eventId)); 
-        if (foundEvent.images.length > 0) {
-          setSelectedImage(foundEvent.images[0]);
-        }
-        if (!viewIncremented) {
-          incrementEventView(eventId);
-          setViewIncremented(true);
-        }
-        // Determine ownership
-        if (isAuthenticated && user && foundEvent.userId === user.id) {
-          setIsOwner(true);
+    async function fetchEvent() {
+      if (eventId && !authIsLoading) {
+        setIsLoadingEvent(true);
+        const foundEvent = await getEventById(eventId);
+        if (foundEvent) {
+          setEvent(foundEvent);
+          if (foundEvent.images.length > 0) {
+            setSelectedImage(foundEvent.images[0]);
+          }
+          if (!viewIncremented) {
+            await incrementEventView(eventId);
+            setViewIncremented(true);
+          }
+          if (isAuthenticated && user && foundEvent.userId === user.id) {
+            setIsOwner(true);
+          } else {
+            setIsOwner(false);
+          }
         } else {
+          setEvent(null);
           setIsOwner(false);
         }
-      } else {
-        // Event not found in local storage
-        setEvent(null); 
+        setIsLoadingEvent(false);
+      } else if (!eventId) {
+        setIsLoadingEvent(false);
         setIsOwner(false);
       }
     }
-  }, [eventId, getEventById, isInitialized, getRSVPForEvent, incrementEventView, authIsLoading, isAuthenticated, user, viewIncremented]);
+
+    fetchEvent();
+  }, [eventId, getEventById, authIsLoading, isAuthenticated, user, incrementEventView, viewIncremented]);
 
 
-  const handleRSVP = (status: RSVPStatus) => {
-    if (!event) return;
+  const handleRSVP = async (status: RSVPStatus) => {
+    if (!event || isSubmittingRSVP) return;
 
     const details: { name?: string; email?: string; phone?: string } = {};
     let canSubmit = true;
@@ -85,7 +93,7 @@ export default function EventPage() {
       }
     }
     if (event.rsvpCollectFields.email) {
-      if (!rsvpEmail.trim() || !/^\S+@\S+\.\S+$/.test(rsvpEmail.trim())) { 
+      if (!rsvpEmail.trim() || !/^\S+@\S+\.\S+$/.test(rsvpEmail.trim())) {
         toast({ title: "Valid Email Required", description: "Please enter a valid email address to RSVP.", variant: "destructive" });
         canSubmit = false;
       } else {
@@ -93,7 +101,7 @@ export default function EventPage() {
       }
     }
     if (event.rsvpCollectFields.phone) {
-      if (!rsvpPhone.trim()) { 
+      if (!rsvpPhone.trim()) {
         toast({ title: "Phone Required", description: "Please enter your phone number to RSVP.", variant: "destructive" });
         canSubmit = false;
       } else {
@@ -103,16 +111,29 @@ export default function EventPage() {
 
     if (!canSubmit) return;
 
-    saveRSVP(event.id, status, details);
-    setCurrentRSVP(status); 
-    toast({
-      title: "RSVP Submitted!",
-      description: `You responded: ${status.charAt(0).toUpperCase() + status.slice(1).replace('_', ' ')}`,
-    });
-    // Clear fields after submission
-    setRsvpName('');
-    setRsvpEmail('');
-    setRsvpPhone('');
+    setIsSubmittingRSVP(true);
+    try {
+      await saveRSVP(event.id, status, details);
+      setCurrentRSVPStatusForSession(status); // UI feedback for current session
+      toast({
+        title: "RSVP Submitted!",
+        description: `You responded: ${status.charAt(0).toUpperCase() + status.slice(1).replace('_', ' ')}`,
+      });
+      // Fetch updated event data to reflect new RSVP counts/attendees for owner.
+      // Guests won't see immediate count changes unless page reloads or state is managed more complexly.
+      if (isOwner) {
+        const updatedEvent = await getEventById(eventId);
+        if (updatedEvent) setEvent(updatedEvent);
+      }
+      setRsvpName('');
+      setRsvpEmail('');
+      setRsvpPhone('');
+    } catch (error) {
+      console.error("Failed to save RSVP:", error);
+      toast({ title: "RSVP Failed", description: "Could not submit your RSVP. Please try again.", variant: "destructive" });
+    } finally {
+      setIsSubmittingRSVP(false);
+    }
   };
 
   const handleCopyLink = () => {
@@ -126,8 +147,7 @@ export default function EventPage() {
       });
   };
 
-  // Show loading spinner if critical data isn't ready yet
-  if (isInitialized === false || authIsLoading) { 
+  if (isLoadingEvent || authIsLoading) {
     return (
       <div className="flex justify-center items-center min-h-screen">
         <div className="text-center">
@@ -141,7 +161,7 @@ export default function EventPage() {
     );
   }
 
-  if (!event) { 
+  if (!event) {
     return (
       <div className="flex justify-center items-center min-h-screen py-8">
         <Card className="w-full max-w-md text-center shadow-xl">
@@ -151,8 +171,10 @@ export default function EventPage() {
           <CardContent>
             <p className="text-muted-foreground">
               The event details could not be loaded. This might be because the link is incorrect,
-              the event has been removed, or you're viewing this on a different device/browser
-              than where it was created (this app uses local storage for demo purposes).
+              the event has been removed, or there was an issue fetching the data.
+            </p>
+            <p className="text-sm text-muted-foreground mt-2">
+              (Note: This app uses Firebase Firestore for event data. Ensure your Firebase project is correctly configured and the event ID is valid.)
             </p>
           </CardContent>
           <CardFooter>
@@ -167,11 +189,12 @@ export default function EventPage() {
   
   let formattedDate = "Date not available";
   try {
-    const dateObj = new Date(event.date);
-    if (!isNaN(dateObj.getTime())) { 
-       // Adjust for timezone offset to display the intended date
-       const offsetDate = new Date(dateObj.valueOf() + dateObj.getTimezoneOffset() * 60 * 1000);
-       formattedDate = format(offsetDate, "EEEE, MMMM dd, yyyy");
+    // Assuming event.date is "YYYY-MM-DD" string
+    if (event.date) {
+      const dateObj = new Date(event.date + 'T00:00:00'); // Add time to avoid timezone issues with just date string
+       if (!isNaN(dateObj.getTime())) { 
+         formattedDate = format(dateObj, "EEEE, MMMM dd, yyyy");
+      }
     }
   } catch (e) {
     console.error("Error formatting date:", e);
@@ -179,21 +202,19 @@ export default function EventPage() {
 
 
   return (
-    // The py-8 is now handled by the EventViewLayout if not owner,
-    // or by container padding if owner. This div mainly sets max-width.
-    <div className="max-w-4xl mx-auto"> 
+    <div className={`max-w-4xl mx-auto ${isOwner ? '' : 'py-8'}`}> 
       <Card className="overflow-hidden shadow-2xl">
         {selectedImage && (
           <div className="relative w-full h-64 md:h-96 bg-muted">
             <NextImage
               src={selectedImage}
               alt={event.name}
-              fill // Changed from layout="fill"
-              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw" // Example sizes
-              style={{ objectFit: "cover" }} // Changed from objectFit="cover"
+              fill 
+              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw" 
+              style={{ objectFit: "cover" }} 
               className="transition-opacity duration-300 ease-in-out"
               data-ai-hint="event highlight"
-              priority={true} // Prioritize the main image
+              priority={true} 
             />
           </div>
         )}
@@ -206,7 +227,7 @@ export default function EventPage() {
                     alt={`${event.name} thumbnail ${idx+1}`} 
                     width={64} 
                     height={64} 
-                    style={{ objectFit: "cover" }}  // Changed from objectFit="cover"
+                    style={{ objectFit: "cover" }}
                     data-ai-hint="event photo" 
                 />
               </button>
@@ -293,6 +314,7 @@ export default function EventPage() {
                       onChange={(e) => setRsvpName(e.target.value)} 
                       className="bg-background/70"
                       required
+                      disabled={isSubmittingRSVP}
                     />
                   </div>
                 )}
@@ -309,6 +331,7 @@ export default function EventPage() {
                       onChange={(e) => setRsvpEmail(e.target.value)} 
                       className="bg-background/70"
                       required
+                      disabled={isSubmittingRSVP}
                     />
                   </div>
                 )}
@@ -325,6 +348,7 @@ export default function EventPage() {
                       onChange={(e) => setRsvpPhone(e.target.value)} 
                       className="bg-background/70"
                       required
+                      disabled={isSubmittingRSVP}
                     />
                   </div>
                 )}
@@ -335,11 +359,13 @@ export default function EventPage() {
               {(['going', 'maybe', 'not_going'] as RSVPStatus[]).map((status) => (
                 <Button
                   key={status}
-                  variant={currentRSVP === status ? 'default' : 'outline'}
+                  variant={currentRSVPStatusForSession === status ? 'default' : 'outline'}
                   size="lg"
                   className="flex-1"
                   onClick={() => handleRSVP(status)}
+                  disabled={isSubmittingRSVP}
                 >
+                  {isSubmittingRSVP && currentRSVPStatusForSession === status ? 'Submitting...' : ''}
                   {status === 'going' && <CheckCircle className="mr-2 h-5 w-5" />}
                   {status === 'maybe' && <HelpCircle className="mr-2 h-5 w-5" />}
                   {status === 'not_going' && <XCircle className="mr-2 h-5 w-5" />}
@@ -347,14 +373,13 @@ export default function EventPage() {
                 </Button>
               ))}
             </div>
-            {currentRSVP && (
+            {currentRSVPStatusForSession && (
               <p className="text-sm text-accent font-medium mt-2">
-                Your response: {currentRSVP.charAt(0).toUpperCase() + currentRSVP.slice(1).replace('_', ' ')}
+                Your response: {currentRSVPStatusForSession.charAt(0).toUpperCase() + currentRSVPStatusForSession.slice(1).replace('_', ' ')}
               </p>
             )}
           </div>
           
-          {/* Show share section if allowed by event creator OR if current user is the owner */}
           {(event.allowEventSharing || isOwner) && (
             <div className="w-full space-y-3 pt-4 border-t border-border">
               <h3 className="text-xl font-semibold text-foreground flex items-center justify-center">
@@ -370,7 +395,6 @@ export default function EventPage() {
           )}
         </CardFooter>
       </Card>
-      {/* Conditionally render "Back to Home" link if it's not the owner view (owner has full header) */}
       {!isOwner && (
         <div className="text-center mt-8">
             <Button variant="link" asChild>
@@ -381,4 +405,3 @@ export default function EventPage() {
     </div>
   );
 }
-

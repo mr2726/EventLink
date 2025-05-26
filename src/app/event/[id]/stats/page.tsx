@@ -11,28 +11,52 @@ import { ArrowLeft, BarChart3, Eye, CheckCircle, HelpCircle, XCircle, Users, Use
 import Link from 'next/link';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from '@/components/ui/badge';
-import { format } from 'date-fns';
+import { format } from 'date-fns'; // Keep format for submittedAt
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function EventStatsPage() {
   const params = useParams();
   const router = useRouter();
-  const { getEventById, isInitialized } = useEventStorage();
+  const { getEventById } = useEventStorage();
+  const { user, isAuthenticated, isLoading: authIsLoading } = useAuth();
+
   const [event, setEvent] = useState<Event | null>(null);
+  const [isLoadingEvent, setIsLoadingEvent] = useState(true);
+  const [isOwner, setIsOwner] = useState(false);
 
   const eventId = typeof params.id === 'string' ? params.id : '';
 
   useEffect(() => {
-    if (isInitialized && eventId) {
-      const foundEvent = getEventById(eventId);
-      if (foundEvent) {
-        setEvent(foundEvent);
-      } else {
-        router.push('/');
+    async function fetchEventDetails() {
+      if (eventId && !authIsLoading) {
+        setIsLoadingEvent(true);
+        const foundEvent = await getEventById(eventId);
+        if (foundEvent) {
+          setEvent(foundEvent);
+          if (isAuthenticated && user && foundEvent.userId === user.id) {
+            setIsOwner(true);
+          } else {
+            // If not authenticated or not the owner, redirect.
+            // This page should be owner-only.
+            toast({ title: "Access Denied", description: "You do not have permission to view these statistics.", variant: "destructive" });
+            router.push(`/event/${eventId}`); // or router.push('/');
+            setIsOwner(false);
+          }
+        } else {
+          // Event not found
+          toast({ title: "Event Not Found", description: "The event statistics could not be loaded.", variant: "destructive" });
+          router.push('/');
+        }
+        setIsLoadingEvent(false);
+      } else if (!eventId) {
+         setIsLoadingEvent(false);
       }
     }
-  }, [eventId, getEventById, isInitialized, router]);
+    fetchEventDetails();
+  }, [eventId, getEventById, authIsLoading, isAuthenticated, user, router]);
 
-  if (!isInitialized || !event) {
+
+  if (isLoadingEvent || authIsLoading) {
     return (
       <div className="flex justify-center items-center min-h-[calc(100vh-200px)]">
         <div className="text-center">
@@ -46,10 +70,23 @@ export default function EventStatsPage() {
     );
   }
 
+  if (!event || !isOwner) {
+     // This case should ideally be handled by the redirect in useEffect,
+     // but as a fallback:
+    return (
+      <div className="flex justify-center items-center min-h-[calc(100vh-200px)]">
+         <p className="text-lg text-destructive">Access denied or event not found.</p>
+      </div>
+    );
+  }
+  
+  // Ensure rsvpCounts exists
+  const rsvpCounts = event.rsvpCounts || { going: 0, maybe: 0, not_going: 0 };
+
   const rsvpData = [
-    { status: 'Going', count: event.rsvpCounts.going, icon: <CheckCircle className="h-5 w-5 text-green-500" /> },
-    { status: 'Maybe', count: event.rsvpCounts.maybe, icon: <HelpCircle className="h-5 w-5 text-yellow-500" /> },
-    { status: 'Not Going', count: event.rsvpCounts.not_going, icon: <XCircle className="h-5 w-5 text-red-500" /> },
+    { status: 'Going', count: rsvpCounts.going, icon: <CheckCircle className="h-5 w-5 text-green-500" /> },
+    { status: 'Maybe', count: rsvpCounts.maybe, icon: <HelpCircle className="h-5 w-5 text-yellow-500" /> },
+    { status: 'Not Going', count: rsvpCounts.not_going, icon: <XCircle className="h-5 w-5 text-red-500" /> },
   ];
 
   const totalRSVPs = event.attendees ? event.attendees.length : 0;
@@ -79,7 +116,7 @@ export default function EventStatsPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-4xl font-bold text-foreground">{event.views}</p>
+                <p className="text-4xl font-bold text-foreground">{event.views || 0}</p>
                 <p className="text-sm text-muted-foreground">Total times the event page has been visited.</p>
               </CardContent>
             </Card>
@@ -127,19 +164,19 @@ export default function EventStatsPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      {event.rsvpCollectFields.name && <TableHead><User className="inline mr-1 h-4 w-4"/>Name</TableHead>}
-                      {event.rsvpCollectFields.email && <TableHead><AtSign className="inline mr-1 h-4 w-4"/>Email</TableHead>}
-                      {event.rsvpCollectFields.phone && <TableHead><Phone className="inline mr-1 h-4 w-4"/>Phone</TableHead>}
+                      {event.rsvpCollectFields?.name && <TableHead><User className="inline mr-1 h-4 w-4"/>Name</TableHead>}
+                      {event.rsvpCollectFields?.email && <TableHead><AtSign className="inline mr-1 h-4 w-4"/>Email</TableHead>}
+                      {event.rsvpCollectFields?.phone && <TableHead><Phone className="inline mr-1 h-4 w-4"/>Phone</TableHead>}
                       <TableHead>RSVP Status</TableHead>
                       <TableHead className="text-right"><CalendarClock className="inline mr-1 h-4 w-4"/>Submitted At</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {event.attendees.sort((a,b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime()).map((attendee: Attendee) => (
-                      <TableRow key={attendee.id}>
-                        {event.rsvpCollectFields.name && <TableCell>{attendee.name || 'N/A'}</TableCell>}
-                        {event.rsvpCollectFields.email && <TableCell>{attendee.email || 'N/A'}</TableCell>}
-                        {event.rsvpCollectFields.phone && <TableCell>{attendee.phone || 'N/A'}</TableCell>}
+                    {event.attendees.sort((a,b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime()).map((attendee: Attendee, index: number) => (
+                      <TableRow key={attendee.id || index}> {/* Use index as fallback key if id isn't guaranteed */}
+                        {event.rsvpCollectFields?.name && <TableCell>{attendee.name || 'N/A'}</TableCell>}
+                        {event.rsvpCollectFields?.email && <TableCell>{attendee.email || 'N/A'}</TableCell>}
+                        {event.rsvpCollectFields?.phone && <TableCell>{attendee.phone || 'N/A'}</TableCell>}
                         <TableCell>
                           <Badge variant={
                             attendee.status === 'going' ? 'default' :
@@ -150,7 +187,7 @@ export default function EventStatsPage() {
                           </Badge>
                         </TableCell>
                         <TableCell className="text-right">
-                          {format(new Date(attendee.submittedAt), "PPpp")}
+                          {attendee.submittedAt ? format(new Date(attendee.submittedAt), "PPpp") : 'N/A'}
                         </TableCell>
                       </TableRow>
                     ))}
@@ -159,7 +196,7 @@ export default function EventStatsPage() {
               </CardContent>
             </Card>
           )}
-           {event.attendees && event.attendees.length === 0 && (
+           {(!event.attendees || event.attendees.length === 0) && (
              <Card className="bg-muted/30">
                 <CardHeader>
                     <CardTitle className="text-xl flex items-center">
@@ -181,4 +218,3 @@ export default function EventStatsPage() {
     </div>
   );
 }
-

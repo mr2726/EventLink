@@ -14,17 +14,13 @@ import AuthForm from '@/components/AuthForm';
 import LandingPage from '@/components/LandingPage';
 
 export default function HomePage() {
-  const { events: allEvents, isInitialized: eventsAreInitialized } = useEventStorage();
-  // Use showAuthForm and setShowAuthForm from context
+  const { events: userEvents, isLoadingEvents } = useEventStorage();
   const { isAuthenticated, isLoading: authIsLoading, user, showAuthForm, setShowAuthForm } = useAuth();
 
-  const userEvents = isAuthenticated && user 
-    ? allEvents.filter(event => event.userId === user.id) 
-    : [];
+  // userEvents are already filtered by userId in the hook
+  const recentEvents = userEvents.slice(0, 6); // Already sorted by hook
 
-  const recentEvents = userEvents.slice().sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 6);
-
-  if (authIsLoading || !eventsAreInitialized) {
+  if (authIsLoading || isLoadingEvents) {
     return (
       <div className="flex justify-center items-center min-h-[calc(100vh-200px)]">
         <div className="text-center">
@@ -38,16 +34,13 @@ export default function HomePage() {
     );
   }
 
-  // If not authenticated, decide whether to show LandingPage or AuthForm
   if (!isAuthenticated) {
     if (showAuthForm) {
       return <AuthForm />;
     }
-    // Pass setShowAuthForm to LandingPage so its "Get Started" button can trigger the AuthForm
     return <LandingPage onGetStarted={() => setShowAuthForm(true)} />;
   }
 
-  // Authenticated user view
   return (
     <div className="space-y-12">
       <section className="text-center py-12 bg-gradient-to-br from-primary/20 via-background to-accent/20 rounded-xl shadow-lg">
@@ -63,7 +56,7 @@ export default function HomePage() {
         </Button>
       </section>
 
-      {eventsAreInitialized && recentEvents.length > 0 && (
+      {recentEvents.length > 0 && (
         <section>
           <h2 className="text-3xl font-semibold text-center mb-8 text-primary">Your Events</h2>
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -74,16 +67,18 @@ export default function HomePage() {
                     <Image
                       src={event.images[0]}
                       alt={event.name}
-                      layout="fill"
-                      objectFit="cover"
+                      fill
+                      style={{ objectFit: "cover" }}
                       data-ai-hint="event celebration"
+                      sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                     />
                   </div>
                 )}
                 <CardHeader>
                   <CardTitle className="text-primary truncate">{event.name}</CardTitle>
                   <CardDescription className="flex items-center text-sm">
-                    <CalendarDays className="mr-2 h-4 w-4" /> {format(new Date(event.date), "MMMM dd, yyyy")}
+                    <CalendarDays className="mr-2 h-4 w-4" /> 
+                    {event.date ? format(new Date(event.date), "MMMM dd, yyyy") : 'Date N/A'}
                     <Clock className="ml-4 mr-2 h-4 w-4" /> {event.time}
                   </CardDescription>
                 </CardHeader>
@@ -120,7 +115,7 @@ export default function HomePage() {
           </div>
         </section>
       )}
-       {eventsAreInitialized && recentEvents.length === 0 && isAuthenticated && (
+       {!isLoadingEvents && recentEvents.length === 0 && isAuthenticated && (
         <section className="text-center py-10">
             <p className="text-lg text-muted-foreground">You haven't created any events yet. Get started by clicking the button above!</p>
         </section>

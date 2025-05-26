@@ -14,48 +14,52 @@ export default function EventViewLayout({ children }: { children: ReactNode }) {
   const params = useParams();
   const eventId = typeof params?.id === 'string' ? params.id : '';
   
-  const { getEventById, isInitialized: storageInitialized } = useEventStorage();
+  const { getEventById } = useEventStorage(); // Removed isInitialized as Firestore hook is async
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   
   const [event, setEvent] = useState<Event | null>(null);
-  // Use null to indicate loading state for ownership decision
   const [isOwnerOfEvent, setIsOwnerOfEvent] = useState<boolean | null>(null); 
+  const [isLoadingLayoutData, setIsLoadingLayoutData] = useState(true);
 
   useEffect(() => {
-    // Only proceed if auth and storage are initialized and we have an eventId
-    if (!authLoading && storageInitialized && eventId) {
-      const foundEvent = getEventById(eventId);
-      setEvent(foundEvent || null);
-      if (foundEvent && isAuthenticated && user) {
-        setIsOwnerOfEvent(foundEvent.userId === user.id);
-      } else {
-        // Not owner if not authenticated, no user, or event not found by this ID
-        setIsOwnerOfEvent(false); 
+    async function loadLayoutData() {
+      if (!authLoading && eventId) {
+        setIsLoadingLayoutData(true);
+        const foundEvent = await getEventById(eventId);
+        setEvent(foundEvent || null);
+        if (foundEvent && isAuthenticated && user) {
+          setIsOwnerOfEvent(foundEvent.userId === user.id);
+        } else {
+          setIsOwnerOfEvent(false); 
+        }
+        setIsLoadingLayoutData(false);
+      } else if (!authLoading && !eventId) {
+        setIsOwnerOfEvent(false);
+        setIsLoadingLayoutData(false);
       }
-    } else if (!authLoading && storageInitialized && !eventId) {
-      // No eventId means cannot be owner of a specific event
-      setIsOwnerOfEvent(false);
     }
-    // If still authLoading or storageNotInitialized, isOwnerOfEvent remains null
-  }, [eventId, getEventById, storageInitialized, user, isAuthenticated, authLoading]);
+    loadLayoutData();
+  }, [eventId, getEventById, authLoading, user, isAuthenticated]);
 
-  // While determining ownership, render children in a basic state.
-  // EventPage will show its own loading spinner if necessary.
-  // RootLayout's <main> for /event/[id] paths has `flex-grow` (no container/padding).
-  if (isOwnerOfEvent === null) {
+  if (isLoadingLayoutData || authLoading) {
     return (
-      <div className="flex-grow">
-        {children}
+      <div className="flex-grow flex justify-center items-center min-h-screen">
+        <div className="text-center">
+            <svg className="mx-auto h-12 w-12 animate-spin text-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <p className="mt-4 text-lg text-muted-foreground">Loading event layout...</p>
+        </div>
       </div>
     );
   }
-
+  
   const showPageChrome = isOwnerOfEvent;
   
   return (
     <>
       {showPageChrome && <Header />}
-      {/* This div ensures flex-grow behavior and applies container styling if owner */}
       <div className={`flex-grow ${showPageChrome ? 'container mx-auto px-4 py-8' : ''}`}>
         {children}
       </div>
