@@ -3,13 +3,15 @@
 
 import { useParams, useRouter } from 'next/navigation';
 import { useEventStorage } from '@/hooks/useEventStorage';
-import type { Event } from '@/lib/types';
+import type { Event, Attendee } from '@/lib/types';
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, BarChart3, Eye, CheckCircle, HelpCircle, XCircle, Users } from 'lucide-react';
+import { ArrowLeft, BarChart3, Eye, CheckCircle, HelpCircle, XCircle, Users, User, AtSign, Phone, CalendarClock } from 'lucide-react';
 import Link from 'next/link';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from '@/components/ui/badge';
+import { format } from 'date-fns';
 
 export default function EventStatsPage() {
   const params = useParams();
@@ -25,7 +27,6 @@ export default function EventStatsPage() {
       if (foundEvent) {
         setEvent(foundEvent);
       } else {
-        // Optionally, redirect or show a "not found" message
         router.push('/');
       }
     }
@@ -51,11 +52,11 @@ export default function EventStatsPage() {
     { status: 'Not Going', count: event.rsvpCounts.not_going, icon: <XCircle className="h-5 w-5 text-red-500" /> },
   ];
 
-  const totalRSVPs = event.rsvpCounts.going + event.rsvpCounts.maybe + event.rsvpCounts.not_going;
+  const totalRSVPs = event.attendees ? event.attendees.length : 0;
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
-      <Button variant="outline" onClick={() => router.back()} className="mb-4">
+    <div className="max-w-4xl mx-auto space-y-6">
+      <Button variant="outline" onClick={() => router.back()} className="mb-4 print:hidden">
         <ArrowLeft className="mr-2 h-4 w-4" /> Back
       </Button>
 
@@ -70,49 +71,108 @@ export default function EventStatsPage() {
           <CardDescription>Overview of engagement for your event.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          <Card className="bg-muted/30">
-            <CardHeader>
-              <CardTitle className="text-xl flex items-center">
-                <Eye className="mr-2 h-5 w-5 text-accent" /> Page Views
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-4xl font-bold text-foreground">{event.views}</p>
-              <p className="text-sm text-muted-foreground">Total times the event page has been visited.</p>
-            </CardContent>
-          </Card>
+          <div className="grid md:grid-cols-2 gap-6">
+            <Card className="bg-muted/30">
+              <CardHeader>
+                <CardTitle className="text-xl flex items-center">
+                  <Eye className="mr-2 h-5 w-5 text-accent" /> Page Views
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-4xl font-bold text-foreground">{event.views}</p>
+                <p className="text-sm text-muted-foreground">Total times the event page has been visited.</p>
+              </CardContent>
+            </Card>
 
-          <Card className="bg-muted/30">
-            <CardHeader>
-              <CardTitle className="text-xl flex items-center">
-                <Users className="mr-2 h-5 w-5 text-accent" /> RSVP Summary
-              </CardTitle>
-               <CardDescription>Total Responses: {totalRSVPs}</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-[150px]">Status</TableHead>
-                    <TableHead className="text-right">Count</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {rsvpData.map((item) => (
-                    <TableRow key={item.status}>
-                      <TableCell className="font-medium flex items-center">
-                        {item.icon}
-                        <span className="ml-2">{item.status}</span>
-                      </TableCell>
-                      <TableCell className="text-right text-lg font-semibold">{item.count}</TableCell>
+            <Card className="bg-muted/30">
+              <CardHeader>
+                <CardTitle className="text-xl flex items-center">
+                  <Users className="mr-2 h-5 w-5 text-accent" /> RSVP Summary
+                </CardTitle>
+                <CardDescription>Total Responses: {totalRSVPs}</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-[150px]">Status</TableHead>
+                      <TableHead className="text-right">Count</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
+                  </TableHeader>
+                  <TableBody>
+                    {rsvpData.map((item) => (
+                      <TableRow key={item.status}>
+                        <TableCell className="font-medium flex items-center">
+                          {item.icon}
+                          <span className="ml-2">{item.status}</span>
+                        </TableCell>
+                        <TableCell className="text-right text-lg font-semibold">{item.count}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </div>
+
+          {event.attendees && event.attendees.length > 0 && (
+            <Card className="bg-muted/30">
+              <CardHeader>
+                <CardTitle className="text-xl flex items-center">
+                  <Users className="mr-2 h-5 w-5 text-accent" /> Attendee Details
+                </CardTitle>
+                <CardDescription>List of guests who have RSVP'd.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      {event.rsvpCollectFields.name && <TableHead><User className="inline mr-1 h-4 w-4"/>Name</TableHead>}
+                      {event.rsvpCollectFields.email && <TableHead><AtSign className="inline mr-1 h-4 w-4"/>Email</TableHead>}
+                      {event.rsvpCollectFields.phone && <TableHead><Phone className="inline mr-1 h-4 w-4"/>Phone</TableHead>}
+                      <TableHead>RSVP Status</TableHead>
+                      <TableHead className="text-right"><CalendarClock className="inline mr-1 h-4 w-4"/>Submitted At</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {event.attendees.sort((a,b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime()).map((attendee: Attendee) => (
+                      <TableRow key={attendee.id}>
+                        {event.rsvpCollectFields.name && <TableCell>{attendee.name || 'N/A'}</TableCell>}
+                        {event.rsvpCollectFields.email && <TableCell>{attendee.email || 'N/A'}</TableCell>}
+                        {event.rsvpCollectFields.phone && <TableCell>{attendee.phone || 'N/A'}</TableCell>}
+                        <TableCell>
+                          <Badge variant={
+                            attendee.status === 'going' ? 'default' :
+                            attendee.status === 'maybe' ? 'secondary' :
+                            'destructive'
+                          } className="capitalize">
+                            {attendee.status.replace('_', ' ')}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {format(new Date(attendee.submittedAt), "PPpp")}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          )}
+           {event.attendees && event.attendees.length === 0 && (
+             <Card className="bg-muted/30">
+                <CardHeader>
+                    <CardTitle className="text-xl flex items-center">
+                    <Users className="mr-2 h-5 w-5 text-accent" /> Attendee Details
+                    </CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <p className="text-muted-foreground">No attendees have RSVP'd yet.</p>
+                </CardContent>
+             </Card>
+           )}
         </CardContent>
-        <CardFooter className="flex justify-center">
+        <CardFooter className="flex justify-center print:hidden">
           <Button asChild variant="default">
             <Link href={`/event/${event.id}`}>View Event Page</Link>
           </Button>
@@ -121,3 +181,4 @@ export default function EventStatsPage() {
     </div>
   );
 }
+
