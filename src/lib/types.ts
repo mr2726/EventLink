@@ -15,6 +15,21 @@ export interface Event {
     maybe: number;
     not_going: number;
   };
+  rsvpCollectFields: {
+    name: boolean;
+    email: boolean;
+    phone: boolean;
+  };
+  attendees: Attendee[];
+}
+
+export interface Attendee {
+  id: string; // Unique ID for this RSVP submission
+  name?: string;
+  email?: string;
+  phone?: string;
+  status: RSVPStatus;
+  submittedAt: string; // ISO date string for when the RSVP was made
 }
 
 export type RSVPStatus = "going" | "maybe" | "not_going";
@@ -22,4 +37,6 @@ export type RSVPStatus = "going" | "maybe" | "not_going";
 export interface EventRSVP {
   eventId: string;
   status: RSVPStatus;
+  // The EventRSVP is for per-session feedback, not for storing all attendee details.
+  // Details like name, email, phone will be part of the Attendee interface.
 }

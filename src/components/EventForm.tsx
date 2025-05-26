@@ -13,13 +13,14 @@ import { Calendar } from '@/components/ui/calendar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { CalendarIcon, Sparkles, PlusCircle, MinusCircle, Tag } from 'lucide-react';
+import { CalendarIcon, Sparkles, PlusCircle, MinusCircle, Tag, User, AtSign, Phone } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { suggestEventTags } from '@/ai/flows/suggest-event-tags';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import React, { useState } from 'react';
+import { Checkbox } from '@/components/ui/checkbox';
 
 const eventFormSchema = z.object({
   name: z.string().min(3, { message: "Event name must be at least 3 characters." }),
@@ -31,12 +32,17 @@ const eventFormSchema = z.object({
   images: z.array(z.object({ url: z.string().url({ message: "Invalid image URL." }) })).max(5, {message: "Maximum 5 images allowed."}),
   tags: z.array(z.string().min(1, {message: "Tag cannot be empty."})).max(10, {message: "Maximum 10 tags allowed."}),
   template: z.string().min(1, { message: "Template selection is required." }),
+  rsvpCollectFields: z.object({
+    name: z.boolean().default(false),
+    email: z.boolean().default(false),
+    phone: z.boolean().default(false),
+  }),
 });
 
 type EventFormValues = z.infer<typeof eventFormSchema>;
 
 interface EventFormProps {
-  onSubmit: (data: Omit<Event, 'id'>) => void;
+  onSubmit: (data: Omit<Event, 'id' | 'attendees'>) => void;
 }
 
 export default function EventForm({ onSubmit }: EventFormProps) {
@@ -56,6 +62,11 @@ export default function EventForm({ onSubmit }: EventFormProps) {
       images: [{ url: '' }],
       tags: [],
       template: 'default',
+      rsvpCollectFields: {
+        name: false,
+        email: false,
+        phone: false,
+      },
     },
   });
 
@@ -106,7 +117,7 @@ export default function EventForm({ onSubmit }: EventFormProps) {
       });
       if (result.tags) {
         const newTags = result.tags.slice(0, 10); // Limit to 10 tags
-        replaceTags(newTags.map(tag => tag)); 
+        replaceTags(newTags.map(tag => tag )); 
         toast({
           title: "Tags Suggested!",
           description: `${newTags.length} tags have been added.`,
@@ -125,13 +136,14 @@ export default function EventForm({ onSubmit }: EventFormProps) {
   };
 
   const processSubmit = (data: EventFormValues) => {
-    const newEventData: Omit<Event, 'id'> = {
+    const newEventData: Omit<Event, 'id' | 'attendees'> = {
       ...data,
       date: format(data.date, 'yyyy-MM-dd'), // Format date before sending
       images: data.images.map(img => img.url).filter(url => url.trim() !== ''),
       tags: data.tags,
       views: 0, // Initialize views
       rsvpCounts: { going: 0, maybe: 0, not_going: 0 }, // Initialize RSVP counts
+      rsvpCollectFields: data.rsvpCollectFields, // Add this
     };
     onSubmit(newEventData);
   };
@@ -252,7 +264,6 @@ export default function EventForm({ onSubmit }: EventFormProps) {
               )}
             />
             
-            {/* Image URLs */}
             <FormItem>
               <FormLabel>Images (Up to 5 URLs, first one is primary)</FormLabel>
               {imageFields.map((field, index) => (
@@ -275,10 +286,9 @@ export default function EventForm({ onSubmit }: EventFormProps) {
                   <PlusCircle className="mr-2 h-4 w-4" /> Add Image URL
                 </Button>
               )}
-              <FormMessage>{form.formState.errors.images?.message || form.formState.errors.images?.[0]?.url?.message}</FormMessage>
+              <FormMessage>{form.formState.errors.images?.message || form.formState.errors.images?.root?.message}</FormMessage>
             </FormItem>
 
-            {/* Tags */}
             <FormItem>
               <FormLabel>Tags (Up to 10)</FormLabel>
               <div className="flex items-center gap-2 mb-2">
@@ -293,7 +303,7 @@ export default function EventForm({ onSubmit }: EventFormProps) {
                 <Button type="button" variant="outline" onClick={handleAddTag}>Add Tag</Button>
               </div>
               <div className="flex flex-wrap gap-2 mb-2">
-                {tagFields.map((_field, index) => ( // _field is not directly used for value
+                {tagFields.map((_field, index) => ( 
                   <Badge key={_field.id} variant="secondary" className="flex items-center gap-1">
                     <span>{form.getValues("tags")[index]}</span> 
                     <button type="button" onClick={() => removeTag(index)} className="ml-1 focus:outline-none">
@@ -305,7 +315,66 @@ export default function EventForm({ onSubmit }: EventFormProps) {
               <Button type="button" variant="outline" size="sm" onClick={handleSuggestTags} disabled={isSuggestingTags}>
                 <Sparkles className="mr-2 h-4 w-4" /> {isSuggestingTags ? 'Suggesting...' : 'Suggest Tags with AI'}
               </Button>
-              <FormMessage>{form.formState.errors.tags?.message}</FormMessage>
+               <FormMessage>{form.formState.errors.tags?.message || form.formState.errors.tags?.root?.message}</FormMessage>
+            </FormItem>
+
+            {/* RSVP Collection Fields */}
+            <FormItem>
+              <FormLabel>RSVP Information to Collect</FormLabel>
+              <FormDescription>Select which details guests should provide when they RSVP.</FormDescription>
+              <div className="space-y-3 pt-2">
+                <FormField
+                  control={form.control}
+                  name="rsvpCollectFields.name"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-center space-x-3 space-y-0 p-3 border rounded-md shadow-sm hover:bg-muted/50">
+                      <FormControl>
+                        <Checkbox
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                        />
+                      </FormControl>
+                      <FormLabel className="font-normal flex items-center cursor-pointer">
+                        <User className="mr-2 h-5 w-5 text-primary" /> Collect Name
+                      </FormLabel>
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="rsvpCollectFields.email"
+                  render={({ field }) => (
+                     <FormItem className="flex flex-row items-center space-x-3 space-y-0 p-3 border rounded-md shadow-sm hover:bg-muted/50">
+                      <FormControl>
+                        <Checkbox
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                        />
+                      </FormControl>
+                      <FormLabel className="font-normal flex items-center cursor-pointer">
+                        <AtSign className="mr-2 h-5 w-5 text-primary" /> Collect Email Address
+                      </FormLabel>
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="rsvpCollectFields.phone"
+                  render={({ field }) => (
+                     <FormItem className="flex flex-row items-center space-x-3 space-y-0 p-3 border rounded-md shadow-sm hover:bg-muted/50">
+                      <FormControl>
+                        <Checkbox
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                        />
+                      </FormControl>
+                      <FormLabel className="font-normal flex items-center cursor-pointer">
+                        <Phone className="mr-2 h-5 w-5 text-primary" /> Collect Phone Number
+                      </FormLabel>
+                    </FormItem>
+                  )}
+                />
+              </div>
             </FormItem>
 
 

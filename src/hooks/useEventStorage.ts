@@ -1,25 +1,27 @@
 
 "use client";
 
-import type { Event, RSVPStatus, EventRSVP } from '@/lib/types';
+import type { Event, RSVPStatus, EventRSVP, Attendee } from '@/lib/types';
 import { useState, useEffect, useCallback } from 'react';
 
 const EVENTS_STORAGE_KEY = 'eventlink_events';
-const RSVPS_STORAGE_KEY = 'eventlink_rsvps';
+const RSVPS_STORAGE_KEY = 'eventlink_rsvps'; // For session-based RSVP feedback
 
 function getInitialEvents(): Event[] {
   if (typeof window === 'undefined') return [];
   const storedEvents = localStorage.getItem(EVENTS_STORAGE_KEY);
   const parsedEvents = storedEvents ? JSON.parse(storedEvents) : [];
-  // Ensure all events have the new fields for backward compatibility
+  
   return parsedEvents.map((event: any) => ({
     ...event,
     views: event.views || 0,
     rsvpCounts: event.rsvpCounts || { going: 0, maybe: 0, not_going: 0 },
+    rsvpCollectFields: event.rsvpCollectFields || { name: false, email: false, phone: false },
+    attendees: event.attendees || [],
   }));
 }
 
-function getInitialRSVPs(): EventRSVP[] {
+function getInitialRSVPs(): EventRSVP[] { // For session-based RSVP feedback
   if (typeof window === 'undefined') return [];
   const storedRSVPs = localStorage.getItem(RSVPS_STORAGE_KEY);
   return storedRSVPs ? JSON.parse(storedRSVPs) : [];
@@ -27,7 +29,7 @@ function getInitialRSVPs(): EventRSVP[] {
 
 export function useEventStorage() {
   const [events, setEvents] = useState<Event[]>([]);
-  const [rsvps, setRSVPs] = useState<EventRSVP[]>([]);
+  const [rsvps, setRSVPs] = useState<EventRSVP[]>([]); // Tracks current session's RSVP for UI feedback
   const [isInitialized, setIsInitialized] = useState(false);
 
   useEffect(() => {
@@ -48,12 +50,14 @@ export function useEventStorage() {
     }
   }, [rsvps, isInitialized]);
 
-  const addEvent = useCallback((newEventData: Omit<Event, 'id' | 'views' | 'rsvpCounts'> & Partial<Pick<Event, 'views' | 'rsvpCounts'>>) => {
+  const addEvent = useCallback((newEventData: Omit<Event, 'id' | 'attendees'>) => {
     const fullNewEvent: Event = {
       id: crypto.randomUUID(),
       ...newEventData,
       views: newEventData.views || 0,
       rsvpCounts: newEventData.rsvpCounts || { going: 0, maybe: 0, not_going: 0 },
+      rsvpCollectFields: newEventData.rsvpCollectFields || { name: false, email: false, phone: false },
+      attendees: [], // Initialize attendees
     };
     setEvents((prevEvents) => [...prevEvents, fullNewEvent]);
   }, []);
@@ -71,31 +75,39 @@ export function useEventStorage() {
     );
   }, []);
 
-  const saveRSVP = useCallback((eventId: string, newStatus: RSVPStatus) => {
-    // Update aggregate counts
+  const saveRSVP = useCallback((
+    eventId: string, 
+    newStatus: RSVPStatus, 
+    details: { name?: string; email?: string; phone?: string }
+  ) => {
+    
     setEvents(prevEvents => {
       return prevEvents.map(event => {
         if (event.id === eventId) {
-          const updatedRsvpCounts = { ...(event.rsvpCounts || { going: 0, maybe: 0, not_going: 0 }) };
+          const newAttendee: Attendee = {
+            id: crypto.randomUUID(),
+            status: newStatus,
+            submittedAt: new Date().toISOString(),
+            name: details.name,
+            email: details.email,
+            phone: details.phone,
+          };
           
-          // Find current individual RSVP for this event to decrement previous status if changed
-          const currentIndividualRSVP = rsvps.find(r => r.eventId === eventId);
-
-          if (currentIndividualRSVP && currentIndividualRSVP.status !== newStatus) {
-            if (updatedRsvpCounts[currentIndividualRSVP.status] > 0) {
-              updatedRsvpCounts[currentIndividualRSVP.status]--;
-            }
-          }
+          const updatedAttendees = [...(event.attendees || []), newAttendee];
           
-          updatedRsvpCounts[newStatus]++;
+          // Recalculate rsvpCounts based on the updated attendees list
+          const newRsvpCounts = { going: 0, maybe: 0, not_going: 0 };
+          updatedAttendees.forEach(attendee => {
+            newRsvpCounts[attendee.status]++;
+          });
           
-          return { ...event, rsvpCounts: updatedRsvpCounts };
+          return { ...event, attendees: updatedAttendees, rsvpCounts: newRsvpCounts };
         }
         return event;
       });
     });
 
-    // Update individual RSVP tracking
+    // Update session-specific RSVP tracking for immediate UI feedback on the event page
     setRSVPs((prevRSVPs) => {
       const existingRSVPIndex = prevRSVPs.findIndex(r => r.eventId === eventId);
       if (existingRSVPIndex > -1) {
@@ -105,9 +117,10 @@ export function useEventStorage() {
       }
       return [...prevRSVPs, { eventId, status: newStatus }];
     });
-  }, [rsvps]); // Added rsvps to dependency array
+  }, []); 
 
   const getRSVPForEvent = useCallback((eventId: string): RSVPStatus | undefined => {
+    // This gets the RSVP status for the current session/user for this event
     return rsvps.find(rsvp => rsvp.eventId === eventId)?.status;
   }, [rsvps]);
 
