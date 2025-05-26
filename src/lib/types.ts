@@ -1,3 +1,4 @@
+
 export interface Event {
   id: string;
   userId: string; // ID of the user who created the event
@@ -22,6 +23,7 @@ export interface Event {
     phone: boolean;
   };
   attendees: Attendee[];
+  allowEventSharing: boolean; // New field
 }
 
 export interface Attendee {

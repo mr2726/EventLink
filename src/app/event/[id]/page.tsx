@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
-import { CalendarDays, Clock, MapPin, ExternalLink, Image as ImageIcon, Tag, CheckCircle, HelpCircle, XCircle, MessageSquare, Link2, Copy, User, AtSign, Phone } from 'lucide-react';
+import { CalendarDays, Clock, MapPin, ExternalLink, Tag, CheckCircle, HelpCircle, XCircle, MessageSquare, Link2, Copy, User, AtSign, Phone } from 'lucide-react';
 import NextImage from 'next/image';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
@@ -29,7 +29,6 @@ export default function EventPage() {
   const [eventUrl, setEventUrl] = useState<string>('');
   const [viewIncremented, setViewIncremented] = useState(false);
 
-  // State for RSVP input fields
   const [rsvpName, setRsvpName] = useState('');
   const [rsvpEmail, setRsvpEmail] = useState('');
   const [rsvpPhone, setRsvpPhone] = useState('');
@@ -45,7 +44,7 @@ export default function EventPage() {
       const foundEvent = getEventById(eventId);
       if (foundEvent) {
         setEvent(foundEvent);
-        setCurrentRSVP(getRSVPForEvent(eventId)); // This gets the *session's* last RSVP status
+        setCurrentRSVP(getRSVPForEvent(eventId)); 
         if (foundEvent.images.length > 0) {
           setSelectedImage(foundEvent.images[0]);
         }
@@ -55,10 +54,13 @@ export default function EventPage() {
         }
       } else {
         toast({ title: "Event not found", variant: "destructive", description: "Could not find the event details. It might have been removed or the link is incorrect." });
-        router.push('/');
+        // Don't redirect immediately from public event page if event not found by this user's local storage
+        // User might have received a valid link but doesn't have the event in *their* local storage.
+        // For a real app with a backend, this behavior would be different.
       }
     }
-  }, [eventId, getEventById, isInitialized, getRSVPForEvent, incrementEventView, router, toast, viewIncremented]);
+  }, [eventId, getEventById, isInitialized, getRSVPForEvent, incrementEventView, toast, viewIncremented]);
+
 
   const handleRSVP = (status: RSVPStatus) => {
     if (!event) return;
@@ -75,15 +77,15 @@ export default function EventPage() {
       }
     }
     if (event.rsvpCollectFields.email) {
-      if (!rsvpEmail.trim()) { // Basic check, could add email format validation
-        toast({ title: "Email Required", description: "Please enter your email to RSVP.", variant: "destructive" });
+      if (!rsvpEmail.trim() || !/^\S+@\S+\.\S+$/.test(rsvpEmail.trim())) { 
+        toast({ title: "Valid Email Required", description: "Please enter a valid email address to RSVP.", variant: "destructive" });
         canSubmit = false;
       } else {
         details.email = rsvpEmail.trim();
       }
     }
     if (event.rsvpCollectFields.phone) {
-      if (!rsvpPhone.trim()) {
+      if (!rsvpPhone.trim()) { 
         toast({ title: "Phone Required", description: "Please enter your phone number to RSVP.", variant: "destructive" });
         canSubmit = false;
       } else {
@@ -94,12 +96,11 @@ export default function EventPage() {
     if (!canSubmit) return;
 
     saveRSVP(event.id, status, details);
-    setCurrentRSVP(status); // Update UI for current session's choice
+    setCurrentRSVP(status); 
     toast({
       title: "RSVP Submitted!",
       description: `You responded: ${status.charAt(0).toUpperCase() + status.slice(1).replace('_', ' ')}`,
     });
-    // Optionally clear fields after submission
     setRsvpName('');
     setRsvpEmail('');
     setRsvpPhone('');
@@ -116,16 +117,40 @@ export default function EventPage() {
       });
   };
 
-  if (!isInitialized || !event) {
+  if (!isInitialized) { // Only show global loading spinner if not initialized
     return (
-      <div className="flex justify-center items-center min-h-[calc(100vh-200px)]">
+      <div className="flex justify-center items-center min-h-screen">
         <div className="text-center">
           <svg className="mx-auto h-12 w-12 animate-spin text-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
           </svg>
-          <p className="mt-4 text-lg text-muted-foreground">{!isInitialized ? "Initializing..." : "Loading event details..."}</p>
+          <p className="mt-4 text-lg text-muted-foreground">Initializing...</p>
         </div>
+      </div>
+    );
+  }
+
+  if (!event) { // If initialized but event is still null (e.g., not found in local storage)
+    return (
+      <div className="flex justify-center items-center min-h-screen py-8">
+        <Card className="w-full max-w-md text-center shadow-xl">
+          <CardHeader>
+            <CardTitle className="text-2xl text-destructive">Event Not Found</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-muted-foreground">
+              The event details could not be loaded. This might be because the link is incorrect,
+              the event has been removed, or you're viewing this on a different device/browser
+              than where it was created (this app uses local storage for demo purposes).
+            </p>
+          </CardContent>
+          <CardFooter>
+             <Button asChild className="w-full">
+                <Link href="/">Go to Homepage</Link>
+            </Button>
+          </CardFooter>
+        </Card>
       </div>
     );
   }
@@ -143,7 +168,7 @@ export default function EventPage() {
 
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className="max-w-4xl mx-auto py-8"> {/* Added py-8 for padding when header is absent */}
       <Card className="overflow-hidden shadow-2xl">
         {selectedImage && (
           <div className="relative w-full h-64 md:h-96 bg-muted">
@@ -231,7 +256,6 @@ export default function EventPage() {
           <div className="w-full space-y-4 text-center">
             <h3 className="text-2xl font-semibold text-foreground mb-4">Will you attend?</h3>
 
-            {/* RSVP Input Fields */}
             {(event.rsvpCollectFields.name || event.rsvpCollectFields.email || event.rsvpCollectFields.phone) && (
               <div className="space-y-4 mb-6 max-w-md mx-auto text-left">
                 {event.rsvpCollectFields.name && (
@@ -305,17 +329,19 @@ export default function EventPage() {
             )}
           </div>
           
-          <div className="w-full space-y-3 pt-4 border-t border-border">
-            <h3 className="text-xl font-semibold text-foreground flex items-center justify-center">
-              <Link2 className="mr-2 h-5 w-5 text-primary" /> Share this Event
-            </h3>
-            <div className="flex items-center space-x-2">
-              <Input type="text" value={eventUrl} readOnly className="bg-background/70" aria-label="Event Link" />
-              <Button onClick={handleCopyLink} variant="outline" size="icon" aria-label="Copy event link">
-                <Copy className="h-5 w-5" />
-              </Button>
+          {event.allowEventSharing && (
+            <div className="w-full space-y-3 pt-4 border-t border-border">
+              <h3 className="text-xl font-semibold text-foreground flex items-center justify-center">
+                <Link2 className="mr-2 h-5 w-5 text-primary" /> Share this Event
+              </h3>
+              <div className="flex items-center space-x-2">
+                <Input type="text" value={eventUrl} readOnly className="bg-background/70" aria-label="Event Link" />
+                <Button onClick={handleCopyLink} variant="outline" size="icon" aria-label="Copy event link">
+                  <Copy className="h-5 w-5" />
+                </Button>
+              </div>
             </div>
-          </div>
+          )}
         </CardFooter>
       </Card>
       <div className="text-center mt-8">
@@ -326,4 +352,3 @@ export default function EventPage() {
     </div>
   );
 }
-

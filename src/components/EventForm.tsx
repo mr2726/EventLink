@@ -13,7 +13,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { CalendarIcon, Sparkles, PlusCircle, MinusCircle, Tag, User, AtSign, Phone } from 'lucide-react';
+import { CalendarIcon, Sparkles, PlusCircle, MinusCircle, Tag, User, AtSign, Phone, Share2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { suggestEventTags } from '@/ai/flows/suggest-event-tags';
@@ -37,12 +37,13 @@ const eventFormSchema = z.object({
     email: z.boolean().default(false),
     phone: z.boolean().default(false),
   }),
+  allowEventSharing: z.boolean().default(true), // New field
 });
 
 type EventFormValues = z.infer<typeof eventFormSchema>;
 
 interface EventFormProps {
-  onSubmit: (data: Omit<Event, 'id' | 'attendees'>) => void;
+  onSubmit: (data: Omit<Event, 'id' | 'attendees' | 'userId'>) => void; // Adjusted type
 }
 
 export default function EventForm({ onSubmit }: EventFormProps) {
@@ -63,10 +64,11 @@ export default function EventForm({ onSubmit }: EventFormProps) {
       tags: [],
       template: 'default',
       rsvpCollectFields: {
-        name: false,
+        name: true, // Default to collecting name
         email: false,
         phone: false,
       },
+      allowEventSharing: true, // Default to true
     },
   });
 
@@ -81,9 +83,10 @@ export default function EventForm({ onSubmit }: EventFormProps) {
   });
 
   const handleAddTag = () => {
-    if (currentTagInput.trim() !== "" && !form.getValues("tags").includes(currentTagInput.trim())) {
+    const tagValue = currentTagInput.trim();
+    if (tagValue !== "" && !form.getValues("tags").includes(tagValue)) {
       if (tagFields.length < 10) {
-        appendTag(currentTagInput.trim());
+        appendTag(tagValue);
         setCurrentTagInput('');
       } else {
         toast({ title: "Tag Limit", description: "Maximum 10 tags allowed.", variant: "destructive" });
@@ -116,11 +119,13 @@ export default function EventForm({ onSubmit }: EventFormProps) {
         eventLocation,
       });
       if (result.tags) {
-        const newTags = result.tags.slice(0, 10); // Limit to 10 tags
-        replaceTags(newTags.map(tag => tag )); 
+        const currentTags = form.getValues("tags");
+        const uniqueNewTags = result.tags.filter(tag => !currentTags.includes(tag));
+        const combinedTags = [...currentTags, ...uniqueNewTags].slice(0, 10);
+        replaceTags(combinedTags.map(tag =>tag));
         toast({
           title: "Tags Suggested!",
-          description: `${newTags.length} tags have been added.`,
+          description: `${result.tags.length > 0 ? 'New tags added if space available.' : 'No new tags suggested or tags already exist.'}`,
         });
       }
     } catch (error) {
@@ -136,14 +141,15 @@ export default function EventForm({ onSubmit }: EventFormProps) {
   };
 
   const processSubmit = (data: EventFormValues) => {
-    const newEventData: Omit<Event, 'id' | 'attendees'> = {
+    const newEventData: Omit<Event, 'id' | 'attendees' | 'userId'> = { // Adjusted type
       ...data,
-      date: format(data.date, 'yyyy-MM-dd'), // Format date before sending
+      date: format(data.date, 'yyyy-MM-dd'), 
       images: data.images.map(img => img.url).filter(url => url.trim() !== ''),
       tags: data.tags,
-      views: 0, // Initialize views
-      rsvpCounts: { going: 0, maybe: 0, not_going: 0 }, // Initialize RSVP counts
-      rsvpCollectFields: data.rsvpCollectFields, // Add this
+      views: 0, 
+      rsvpCounts: { going: 0, maybe: 0, not_going: 0 },
+      rsvpCollectFields: data.rsvpCollectFields,
+      allowEventSharing: data.allowEventSharing, // Include new field
     };
     onSubmit(newEventData);
   };
@@ -198,7 +204,7 @@ export default function EventForm({ onSubmit }: EventFormProps) {
                           mode="single"
                           selected={field.value}
                           onSelect={field.onChange}
-                          disabled={(date) => date < new Date(new Date().setHours(0,0,0,0)) } // Disable past dates
+                          disabled={(date) => date < new Date(new Date().setHours(0,0,0,0)) } 
                           initialFocus
                         />
                       </PopoverContent>
@@ -266,8 +272,8 @@ export default function EventForm({ onSubmit }: EventFormProps) {
             
             <FormItem>
               <FormLabel>Images (Up to 5 URLs, first one is primary)</FormLabel>
-              {imageFields.map((field, index) => (
-                <div key={field.id} className="flex items-center gap-2 mb-2">
+              {imageFields.map((item, index) => (
+                <div key={item.id} className="flex items-center gap-2 mb-2">
                   <FormControl>
                      <Input
                         {...form.register(`images.${index}.url`)}
@@ -303,8 +309,8 @@ export default function EventForm({ onSubmit }: EventFormProps) {
                 <Button type="button" variant="outline" onClick={handleAddTag}>Add Tag</Button>
               </div>
               <div className="flex flex-wrap gap-2 mb-2">
-                {tagFields.map((_field, index) => ( 
-                  <Badge key={_field.id} variant="secondary" className="flex items-center gap-1">
+                {tagFields.map((item, index) => ( 
+                  <Badge key={item.id} variant="secondary" className="flex items-center gap-1">
                     <span>{form.getValues("tags")[index]}</span> 
                     <button type="button" onClick={() => removeTag(index)} className="ml-1 focus:outline-none">
                       <MinusCircle className="h-3 w-3" />
@@ -318,7 +324,6 @@ export default function EventForm({ onSubmit }: EventFormProps) {
                <FormMessage>{form.formState.errors.tags?.message || form.formState.errors.tags?.root?.message}</FormMessage>
             </FormItem>
 
-            {/* RSVP Collection Fields */}
             <FormItem>
               <FormLabel>RSVP Information to Collect</FormLabel>
               <FormDescription>Select which details guests should provide when they RSVP.</FormDescription>
@@ -376,7 +381,29 @@ export default function EventForm({ onSubmit }: EventFormProps) {
                 />
               </div>
             </FormItem>
-
+            
+            <FormField
+              control={form.control}
+              name="allowEventSharing"
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-center space-x-3 space-y-0 p-3 border rounded-md shadow-sm hover:bg-muted/50">
+                  <FormControl>
+                    <Checkbox
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                    />
+                  </FormControl>
+                  <div className="space-y-0.5">
+                    <FormLabel className="font-normal flex items-center cursor-pointer">
+                      <Share2 className="mr-2 h-5 w-5 text-primary" /> Allow Event Sharing
+                    </FormLabel>
+                    <FormDescription>
+                      If checked, guests will see a "Share this Event" section on the invitation page.
+                    </FormDescription>
+                  </div>
+                </FormItem>
+              )}
+            />
 
             <FormField
               control={form.control}
