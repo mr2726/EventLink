@@ -6,8 +6,6 @@ import { useForm, useFieldArray, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Button } from '@/components/ui/button';
-// Removed Input import as we'll use raw input for color pickers
-// import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
@@ -23,7 +21,7 @@ import { Badge } from '@/components/ui/badge';
 import React, { useState } from 'react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
-import { Input } from '@/components/ui/input'; // Re-add for non-color inputs
+import { Input } from '@/components/ui/input'; // Standard input for non-color fields
 
 const PREDEFINED_FONTS = [
   { label: 'Default Theme Font', value: 'inherit' },
@@ -158,7 +156,7 @@ export default function EventForm({ onSubmit }: EventFormProps) {
         const currentTags = form.getValues("tags");
         const uniqueNewTags = result.tags.filter(tag => !currentTags.includes(tag));
         const combinedTags = [...currentTags, ...uniqueNewTags].slice(0, 10);
-        replaceTags(combinedTags.map(tag => tag)); // Ensure it's an array of strings
+        replaceTags(combinedTags.map(tag => tag));
         toast({
           title: "Tags Suggested!",
           description: `${result.tags.length > 0 ? 'New tags added if space available.' : 'No new tags suggested or tags already exist.'}`,
@@ -343,4 +341,6 @@ export default function EventForm({ onSubmit }: EventFormProps) {
     </div>
   );
 }
+    
+
     
