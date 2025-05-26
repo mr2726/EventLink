@@ -14,7 +14,7 @@ export default function EventViewLayout({ children }: { children: ReactNode }) {
   const params = useParams();
   const eventId = typeof params?.id === 'string' ? params.id : '';
   
-  const { getEventById } = useEventStorage(); // Removed isInitialized as Firestore hook is async
+  const { getEventById } = useEventStorage();
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   
   const [event, setEvent] = useState<Event | null>(null);
@@ -33,17 +33,20 @@ export default function EventViewLayout({ children }: { children: ReactNode }) {
           setIsOwnerOfEvent(false); 
         }
         setIsLoadingLayoutData(false);
-      } else if (!authLoading && !eventId) {
+      } else if (!authLoading && !eventId) { // Handle case where eventId might be missing
         setIsOwnerOfEvent(false);
+        setEvent(null); // Ensure event is null if no ID
         setIsLoadingLayoutData(false);
       }
     }
     loadLayoutData();
   }, [eventId, getEventById, authLoading, user, isAuthenticated]);
 
+  const pageBackgroundColor = event?.customStyles?.pageBackgroundColor || 'var(--background)'; // Fallback to theme background
+
   if (isLoadingLayoutData || authLoading) {
     return (
-      <div className="flex-grow flex justify-center items-center min-h-screen">
+      <div className="flex-grow flex justify-center items-center min-h-screen" style={{ backgroundColor: 'var(--background)'}}>
         <div className="text-center">
             <svg className="mx-auto h-12 w-12 animate-spin text-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
@@ -55,15 +58,15 @@ export default function EventViewLayout({ children }: { children: ReactNode }) {
     );
   }
   
-  const showPageChrome = isOwnerOfEvent;
+  const showPageChrome = isOwnerOfEvent === true; // Explicitly check for true
   
   return (
-    <>
+    <div style={{ backgroundColor: pageBackgroundColor }} className="flex flex-col min-h-screen">
       {showPageChrome && <Header />}
-      <div className={`flex-grow ${showPageChrome ? 'container mx-auto px-4 py-8' : ''}`}>
+      <main className={`flex-grow ${showPageChrome ? 'container mx-auto px-4 py-8' : ''}`}>
         {children}
-      </div>
+      </main>
       {showPageChrome && <Footer />}
-    </>
+    </div>
   );
 }

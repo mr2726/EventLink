@@ -1,7 +1,7 @@
 
 "use client";
 
-import type { Event, RSVPStatus, Attendee } from '@/lib/types';
+import type { Event, RSVPStatus, Attendee, CustomEventStyles } from '@/lib/types';
 import { useState, useEffect, useCallback } from 'react';
 import { db } from '@/lib/firebase'; // Import Firestore instance
 import {
@@ -17,7 +17,7 @@ import {
   increment,
   Timestamp,
   arrayUnion,
-  type FieldValue 
+  type FieldValue
 } from 'firebase/firestore';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -39,6 +39,10 @@ const convertEventTimestamps = (eventData: any): Event => {
       return updatedAttendee;
     });
   }
+  // Ensure customStyles exists, defaulting if necessary
+  if (!data.customStyles) {
+    data.customStyles = {}; // Default to empty object if not present
+  }
   return data as Event;
 };
 
@@ -57,11 +61,11 @@ export function useEventStorage() {
         try {
           const q = query(collection(db, 'events'), where('userId', '==', user.id));
           const querySnapshot = await getDocs(q);
-          const userEvents: Event[] = [];
+          const userEventsData: Event[] = [];
           querySnapshot.forEach((doc) => {
-            userEvents.push(convertEventTimestamps({ id: doc.id, ...doc.data() } as Event));
+            userEventsData.push(convertEventTimestamps({ id: doc.id, ...doc.data() } as Event));
           });
-          setEvents(userEvents.sort((a,b) => {
+          setEvents(userEventsData.sort((a,b) => {
              const dateA = a.createdAt ? new Date(a.createdAt as string).getTime() : 0;
              const dateB = b.createdAt ? new Date(b.createdAt as string).getTime() : 0;
              return dateB - dateA; // Sort by creation date, newest first
@@ -92,17 +96,16 @@ export function useEventStorage() {
         attendees: [],
         allowEventSharing: newEventData.allowEventSharing !== undefined ? newEventData.allowEventSharing : true,
         rsvpCollectFields: newEventData.rsvpCollectFields || { name: true, email: false, phone: false },
+        customStyles: newEventData.customStyles || {}, // Ensure customStyles is an object
         createdAt: serverTimestamp() as FieldValue,
       };
       const docRef = await addDoc(collection(db, 'events'), eventToCreate);
       
-      // Fetch the newly created document to get its actual data including server-generated timestamp
       const newEventSnap = await getDoc(docRef);
       if (newEventSnap.exists()) {
         const createdEvent = convertEventTimestamps({ id: newEventSnap.id, ...newEventSnap.data() });
         
-        // Optimistically update local state for homepage if user is logged in
-        if (user && user.id) {
+        if (user && user.id === createdEvent.userId) { // Ensure it's the current user's event
             setEvents(prevEvents => 
                 [createdEvent, ...prevEvents].sort((a,b) => {
                     const dateA = a.createdAt ? new Date(a.createdAt as string).getTime() : 0;
@@ -113,14 +116,13 @@ export function useEventStorage() {
         }
         return createdEvent;
       } else {
-        // Fallback if doc not found immediately (should be rare)
-        const clientSideCreatedEvent = { ...eventToCreate, id: docRef.id, createdAt: new Date().toISOString() } as any;
+        const clientSideCreatedEvent = { ...eventToCreate, id: docRef.id, createdAt: new Date().toISOString(), customStyles: eventToCreate.customStyles } as any; // Ensure customStyles is passed
         return convertEventTimestamps(clientSideCreatedEvent) as Event;
       }
 
     } catch (error) {
       console.error("Error adding event to Firestore:", error);
-      throw error; // Re-throw to be caught by caller
+      throw error; 
     }
   }, [user]);
 
@@ -163,18 +165,17 @@ export function useEventStorage() {
     try {
       const eventDocRef = doc(db, 'events', eventId);
       
-      // Prepare attendee data, only including fields that have values
       const attendeeDataForFirestore: {
         id: string;
         status: RSVPStatus;
-        submittedAt: Timestamp; // Changed from FieldValue to Timestamp
+        submittedAt: Timestamp; 
         name?: string;
         email?: string;
         phone?: string;
       } = {
         id: crypto.randomUUID(),
         status: newStatus,
-        submittedAt: Timestamp.now(), // Use client-side timestamp
+        submittedAt: Timestamp.now(), 
       };
 
       if (details.name && details.name.trim() !== "") {
@@ -187,7 +188,6 @@ export function useEventStorage() {
         attendeeDataForFirestore.phone = details.phone.trim();
       }
 
-      // Atomically update attendees array and increment RSVP count
       await updateDoc(eventDocRef, {
         attendees: arrayUnion(attendeeDataForFirestore),
         [`rsvpCounts.${newStatus}`]: increment(1)

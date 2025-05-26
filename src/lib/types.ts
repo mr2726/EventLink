@@ -1,18 +1,28 @@
 
 import type { Timestamp } from 'firebase/firestore';
 
+export interface CustomEventStyles {
+  pageBackgroundColor?: string;
+  contentBackgroundColor?: string;
+  textColor?: string;
+  iconAndTitleColor?: string; // For icons and main event name title
+  fontEventName?: string;
+  fontTitles?: string; // For section headers like Date, Time, Location
+  fontDescription?: string; // For main event description text
+}
+
 export interface Event {
   id: string;
-  userId: string; 
+  userId: string;
   name: string;
   date: string; // YYYY-MM-DD
   time: string; // HH:mm
   location: string;
   description: string;
   mapLink?: string;
-  images: string[]; 
+  images: string[];
   tags: string[];
-  template: string; 
+  template: string; // Currently not used for styling, but kept for future
   views: number;
   rsvpCounts: {
     going: number;
@@ -27,10 +37,11 @@ export interface Event {
   attendees: Attendee[];
   allowEventSharing: boolean;
   createdAt?: Timestamp | string; // Stored as Firestore Timestamp, converted to string on read
+  customStyles?: CustomEventStyles;
 }
 
 export interface Attendee {
-  id: string; 
+  id: string;
   name?: string;
   email?: string;
   phone?: string;
@@ -39,9 +50,3 @@ export interface Attendee {
 }
 
 export type RSVPStatus = "going" | "maybe" | "not_going";
-
-// This can be removed if not used for session-specific RSVP feedback anymore
-// export interface EventRSVP {
-//   eventId: string;
-//   status: RSVPStatus;
-// }
