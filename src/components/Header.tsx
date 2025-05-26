@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { CalendarPlus, LogIn, LogOut } from 'lucide-react';
+import { CalendarPlus, LogIn, LogOut, Home } from 'lucide-react'; // Added Home icon
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 
@@ -22,7 +22,7 @@ export default function Header() {
           <Link href="/" className="text-2xl font-bold text-primary hover:opacity-80 transition-opacity">
             EventLink
           </Link>
-          <div className="h-10 w-24 bg-muted rounded animate-pulse"></div> {/* Skeleton for buttons */}
+          <div className="h-10 w-36 bg-muted rounded animate-pulse"></div> {/* Skeleton for buttons */}
         </div>
       </header>
     );
@@ -37,6 +37,11 @@ export default function Header() {
         <nav className="flex items-center gap-2">
           {isAuthenticated ? (
             <>
+              <Button asChild variant="ghost">
+                <Link href="/">
+                  <Home className="mr-2 h-4 w-4" /> Home
+                </Link>
+              </Button>
               <Button asChild variant="default">
                 <Link href="/create">
                   <CalendarPlus className="mr-2 h-4 w-4" /> Create Event
@@ -48,8 +53,11 @@ export default function Header() {
             </>
           ) : (
             <>
-              {/* For unauthenticated users, "Create Event" could also lead to login */}
-              {/* Or simply show a Login button */}
+              <Button asChild variant="ghost">
+                <Link href="/">
+                  <Home className="mr-2 h-4 w-4" /> Home
+                </Link>
+              </Button>
               <Button variant="outline" onClick={handleLoginClick}>
                  <LogIn className="mr-2 h-4 w-4" /> Login
               </Button>
