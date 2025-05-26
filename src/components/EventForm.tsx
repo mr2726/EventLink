@@ -6,7 +6,8 @@ import { useForm, useFieldArray, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+// Removed Input import as we'll use raw input for color pickers
+// import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
@@ -22,6 +23,7 @@ import { Badge } from '@/components/ui/badge';
 import React, { useState } from 'react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
+import { Input } from '@/components/ui/input'; // Re-add for non-color inputs
 
 const PREDEFINED_FONTS = [
   { label: 'Default Theme Font', value: 'inherit' },
@@ -52,7 +54,6 @@ const eventFormSchema = z.object({
   mapLink: z.string().url({ message: "Invalid URL for map link." }).optional().or(z.literal('')),
   images: z.array(z.object({ url: z.string().url({ message: "Invalid image URL." }) })).max(5, {message: "Maximum 5 images allowed."}),
   tags: z.array(z.string().min(1, {message: "Tag cannot be empty."})).max(10, {message: "Maximum 10 tags allowed."}),
-  // template: z.string().min(1, { message: "Template selection is required." }), // Commented out as superseded
   rsvpCollectFields: z.object({
     name: z.boolean().default(true),
     email: z.boolean().default(false),
@@ -83,7 +84,6 @@ export default function EventForm({ onSubmit }: EventFormProps) {
       mapLink: '',
       images: [{ url: 'https://placehold.co/600x400.png' }],
       tags: ['party', 'fun'],
-      // template: 'default', // Commented out
       rsvpCollectFields: {
         name: true,
         email: false,
@@ -157,11 +157,8 @@ export default function EventForm({ onSubmit }: EventFormProps) {
       if (result.tags) {
         const currentTags = form.getValues("tags");
         const uniqueNewTags = result.tags.filter(tag => !currentTags.includes(tag));
-        // Ensure tags are strings for useFieldArray when replacing.
-        // useFieldArray expects an array of objects if the field type is an object array, 
-        // but for string arrays, it expects an array of strings.
         const combinedTags = [...currentTags, ...uniqueNewTags].slice(0, 10);
-        replaceTags(combinedTags); 
+        replaceTags(combinedTags.map(tag => tag)); // Ensure it's an array of strings
         toast({
           title: "Tags Suggested!",
           description: `${result.tags.length > 0 ? 'New tags added if space available.' : 'No new tags suggested or tags already exist.'}`,
@@ -186,10 +183,12 @@ export default function EventForm({ onSubmit }: EventFormProps) {
       images: data.images.map(img => img.url).filter(url => url && url.trim() !== ''),
       tags: data.tags,
       customStyles: data.customStyles,
-      // template: data.template, // Commented out
     };
     onSubmit(newEventData);
   };
+  
+  const colorInputBaseClasses = "h-10 w-full rounded-md border border-input bg-background p-1 ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50";
+
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
@@ -225,10 +224,10 @@ export default function EventForm({ onSubmit }: EventFormProps) {
                 <h3 className="text-xl font-semibold flex items-center"><Palette className="mr-2 h-5 w-5 text-primary" />Color Customization</h3>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <FormField control={form.control} name="customStyles.pageBackgroundColor" render={({ field }) => ( <FormItem> <FormLabel>Page Background Color</FormLabel> <FormControl><Input type="color" {...field} className="h-10 p-1"/></FormControl> <FormMessage /> </FormItem> )}/>
-                <FormField control={form.control} name="customStyles.contentBackgroundColor" render={({ field }) => ( <FormItem> <FormLabel>Content Card Background</FormLabel> <FormControl><Input type="color" {...field} className="h-10 p-1"/></FormControl> <FormMessage /> </FormItem> )}/>
-                <FormField control={form.control} name="customStyles.textColor" render={({ field }) => ( <FormItem> <FormLabel>Main Text Color</FormLabel> <FormControl><Input type="color" {...field} className="h-10 p-1"/></FormControl> <FormMessage /> </FormItem> )}/>
-                <FormField control={form.control} name="customStyles.iconAndTitleColor" render={({ field }) => ( <FormItem> <FormLabel>Icon & Event Title Color</FormLabel> <FormControl><Input type="color" {...field} className="h-10 p-1"/></FormControl> <FormMessage /> </FormItem> )}/>
+                <FormField control={form.control} name="customStyles.pageBackgroundColor" render={({ field }) => ( <FormItem> <FormLabel>Page Background Color</FormLabel> <FormControl><input type="color" {...field} className={cn(colorInputBaseClasses)}/></FormControl> <FormMessage /> </FormItem> )}/>
+                <FormField control={form.control} name="customStyles.contentBackgroundColor" render={({ field }) => ( <FormItem> <FormLabel>Content Card Background</FormLabel> <FormControl><input type="color" {...field} className={cn(colorInputBaseClasses)}/></FormControl> <FormMessage /> </FormItem> )}/>
+                <FormField control={form.control} name="customStyles.textColor" render={({ field }) => ( <FormItem> <FormLabel>Main Text Color</FormLabel> <FormControl><input type="color" {...field} className={cn(colorInputBaseClasses)}/></FormControl> <FormMessage /> </FormItem> )}/>
+                <FormField control={form.control} name="customStyles.iconAndTitleColor" render={({ field }) => ( <FormItem> <FormLabel>Icon & Event Title Color</FormLabel> <FormControl><input type="color" {...field} className={cn(colorInputBaseClasses)}/></FormControl> <FormMessage /> </FormItem> )}/>
               </div>
               
               <Separator />
@@ -241,8 +240,6 @@ export default function EventForm({ onSubmit }: EventFormProps) {
                 <FormField control={form.control} name="customStyles.fontDescription" render={({ field }) => ( <FormItem> <FormLabel>Description Font</FormLabel> <Select onValueChange={field.onChange} defaultValue={field.value}> <FormControl><SelectTrigger><SelectValue placeholder="Select font" /></SelectTrigger></FormControl> <SelectContent>{PREDEFINED_FONTS.map(f => <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>)}</SelectContent> </Select> <FormMessage /> </FormItem> )}/>
               </div>
               <Separator />
-
-              {/* <FormField control={form.control} name="template" render={({ field }) => ( <FormItem> <FormLabel>Template</FormLabel> <Select onValueChange={field.onChange} defaultValue={field.value}> <FormControl> <SelectTrigger> <SelectValue placeholder="Select a template" /> </SelectTrigger> </FormControl> <SelectContent> <SelectItem value="default">Default</SelectItem> <SelectItem value="modern">Modern</SelectItem> <SelectItem value="classic">Classic</SelectItem> <SelectItem value="funky">Funky</SelectItem> </SelectContent> </Select> <FormDescription>Choose a visual style for your invitation page.</FormDescription> <FormMessage /> </FormItem> )}/> */}
 
               <Button type="submit" className="w-full" size="lg" disabled={form.formState.isSubmitting}>
                 {form.formState.isSubmitting ? 'Creating Event...' : 'Create Event'}
@@ -346,5 +343,4 @@ export default function EventForm({ onSubmit }: EventFormProps) {
     </div>
   );
 }
-
     
