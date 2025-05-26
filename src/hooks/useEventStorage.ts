@@ -17,7 +17,7 @@ import {
   increment,
   Timestamp,
   arrayUnion,
-  FieldValue // Added FieldValue for serverTimestamp
+  type FieldValue 
 } from 'firebase/firestore';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -90,27 +90,34 @@ export function useEventStorage() {
         views: 0,
         rsvpCounts: { going: 0, maybe: 0, not_going: 0 },
         attendees: [],
+        allowEventSharing: newEventData.allowEventSharing !== undefined ? newEventData.allowEventSharing : true,
+        rsvpCollectFields: newEventData.rsvpCollectFields || { name: true, email: false, phone: false },
         createdAt: serverTimestamp() as FieldValue,
       };
       const docRef = await addDoc(collection(db, 'events'), eventToCreate);
-      // After adding, refetch user's events to update the list on homepage
-      if (user && user.id) {
-        const q = query(collection(db, 'events'), where('userId', '==', user.id));
-        const querySnapshot = await getDocs(q);
-        const userEventsList: Event[] = [];
-        querySnapshot.forEach((doc) => {
-          userEventsList.push(convertEventTimestamps({ id: doc.id, ...doc.data() } as Event));
-        });
-        setEvents(userEventsList.sort((a,b) => {
-            const dateA = a.createdAt ? new Date(a.createdAt as string).getTime() : 0;
-            const dateB = b.createdAt ? new Date(b.createdAt as string).getTime() : 0;
-            return dateB - dateA;
-        }));
+      
+      // Fetch the newly created document to get its actual data including server-generated timestamp
+      const newEventSnap = await getDoc(docRef);
+      if (newEventSnap.exists()) {
+        const createdEvent = convertEventTimestamps({ id: newEventSnap.id, ...newEventSnap.data() });
+        
+        // Optimistically update local state for homepage if user is logged in
+        if (user && user.id) {
+            setEvents(prevEvents => 
+                [createdEvent, ...prevEvents].sort((a,b) => {
+                    const dateA = a.createdAt ? new Date(a.createdAt as string).getTime() : 0;
+                    const dateB = b.createdAt ? new Date(b.createdAt as string).getTime() : 0;
+                    return dateB - dateA;
+                })
+            );
+        }
+        return createdEvent;
+      } else {
+        // Fallback if doc not found immediately (should be rare)
+        const clientSideCreatedEvent = { ...eventToCreate, id: docRef.id, createdAt: new Date().toISOString() } as any;
+        return convertEventTimestamps(clientSideCreatedEvent) as Event;
       }
-      // For the returned event, we simulate the serverTimestamp with a client-side date
-      // as Firestore wouldn't have resolved it yet for the return value.
-      const createdEventData = { ...eventToCreate, id: docRef.id, createdAt: new Date().toISOString() };
-      return convertEventTimestamps(createdEventData as any) as Event;
+
     } catch (error) {
       console.error("Error adding event to Firestore:", error);
       throw error; // Re-throw to be caught by caller
@@ -160,14 +167,14 @@ export function useEventStorage() {
       const attendeeDataForFirestore: {
         id: string;
         status: RSVPStatus;
-        submittedAt: FieldValue;
+        submittedAt: Timestamp; // Changed from FieldValue to Timestamp
         name?: string;
         email?: string;
         phone?: string;
       } = {
         id: crypto.randomUUID(),
         status: newStatus,
-        submittedAt: serverTimestamp() as FieldValue,
+        submittedAt: Timestamp.now(), // Use client-side timestamp
       };
 
       if (details.name && details.name.trim() !== "") {
