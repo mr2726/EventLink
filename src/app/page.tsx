@@ -103,76 +103,101 @@ export default function HomePage() {
         <section>
           <h2 className="text-3xl font-semibold text-center mb-8 text-primary">Your Events</h2>
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {recentEvents.map((event) => (
-              <Card key={event.id} className="flex flex-col overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300">
-                {event.images && event.images[0] && (
-                  <div className="relative w-full h-48">
-                    <Image
-                      src={event.images[0]}
-                      alt={event.name}
-                      fill
-                      style={{ objectFit: "cover" }}
-                      data-ai-hint="event celebration"
-                      sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                    />
-                  </div>
-                )}
-                <CardHeader>
-                  <CardTitle className="text-primary truncate">{event.name}</CardTitle>
-                  <CardDescription className="flex items-center text-sm">
-                    <CalendarDays className="mr-2 h-4 w-4" /> 
-                    {event.date ? format(new Date(event.date + 'T00:00:00'), "MMMM dd, yyyy") : 'Date N/A'}
-                    <Clock className="ml-4 mr-2 h-4 w-4" /> {event.time}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="flex-grow">
-                  <p className="text-sm text-muted-foreground line-clamp-3 mb-2">{event.description}</p>
-                  <div className="flex items-center text-sm text-muted-foreground mb-1">
-                    <MapPin className="mr-2 h-4 w-4 flex-shrink-0" />
-                    <span className="truncate">{event.location}</span>
-                  </div>
-                   <div className="flex items-center text-sm text-muted-foreground mb-4">
-                    <Eye className="mr-2 h-4 w-4 flex-shrink-0" />
-                    <span>{event.views || 0} views</span>
-                  </div>
-                  {event.tags && event.tags.length > 0 && (
-                     <div className="flex items-center text-sm text-muted-foreground">
-                        <Tag className="mr-2 h-4 w-4 flex-shrink-0" />
-                        <span className="truncate">{event.tags.slice(0,3).join(', ')}</span>
-                     </div>
+            {recentEvents.map((event) => {
+              let displayDate = 'Date N/A';
+              if (event.date && typeof event.date === 'string' && event.date.includes('-')) {
+                try {
+                  const parts = event.date.split('-');
+                  if (parts.length === 3) {
+                    const year = parseInt(parts[0], 10);
+                    const month = parseInt(parts[1], 10) - 1; // JS months are 0-indexed
+                    const day = parseInt(parts[2], 10);
+                    const dateObject = new Date(Date.UTC(year, month, day));
+
+                    if (!isNaN(dateObject.valueOf())) {
+                      displayDate = format(dateObject, "MMMM dd, yyyy");
+                    } else {
+                      console.warn(`HomePage: Invalid date constructed for event ${event.id}: ${event.date}`);
+                    }
+                  } else {
+                    console.warn(`HomePage: Malformed date string for event ${event.id}: ${event.date}`);
+                  }
+                } catch (error) {
+                  console.warn(`HomePage: Error processing date for event ${event.id}: ${event.date}`, error);
+                }
+              }
+
+              return (
+                <Card key={event.id} className="flex flex-col overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300">
+                  {event.images && event.images[0] && (
+                    <div className="relative w-full h-48">
+                      <Image
+                        src={event.images[0]}
+                        alt={event.name}
+                        fill
+                        style={{ objectFit: "cover" }}
+                        data-ai-hint="event celebration"
+                        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                      />
+                    </div>
                   )}
-                </CardContent>
-                <CardFooter className="flex flex-col gap-2 pt-4">
-                  <div className="w-full flex flex-row gap-2">
-                    <Button asChild variant="outline" className="flex-1">
-                      <Link href={`/event/${event.id}`}>View Invitation</Link>
-                    </Button>
-                    <Button asChild variant="secondary" className="flex-1">
-                      <Link href={`/event/${event.id}/stats`}>
-                          <BarChart3 className="mr-2 h-4 w-4"/>
-                          Stats
-                      </Link>
-                    </Button>
-                  </div>
-                  <div className="w-full flex flex-row gap-2">
-                     <Button asChild variant="outline" className="flex-1 border-yellow-500/50 text-yellow-600 hover:bg-yellow-500/10 hover:text-yellow-700">
-                        <Link href={`/event/${event.id}/edit`}>
-                            <Pencil className="mr-2 h-4 w-4"/>
-                            Edit
+                  <CardHeader>
+                    <CardTitle className="text-primary truncate">{event.name}</CardTitle>
+                    <CardDescription className="flex items-center text-sm">
+                      <CalendarDays className="mr-2 h-4 w-4" /> 
+                      {displayDate}
+                      <Clock className="ml-4 mr-2 h-4 w-4" /> {event.time}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="flex-grow">
+                    <p className="text-sm text-muted-foreground line-clamp-3 mb-2">{event.description}</p>
+                    <div className="flex items-center text-sm text-muted-foreground mb-1">
+                      <MapPin className="mr-2 h-4 w-4 flex-shrink-0" />
+                      <span className="truncate">{event.location}</span>
+                    </div>
+                    <div className="flex items-center text-sm text-muted-foreground mb-4">
+                      <Eye className="mr-2 h-4 w-4 flex-shrink-0" />
+                      <span>{event.views || 0} views</span>
+                    </div>
+                    {event.tags && event.tags.length > 0 && (
+                      <div className="flex items-center text-sm text-muted-foreground">
+                          <Tag className="mr-2 h-4 w-4 flex-shrink-0" />
+                          <span className="truncate">{event.tags.slice(0,3).join(', ')}</span>
+                      </div>
+                    )}
+                  </CardContent>
+                  <CardFooter className="flex flex-col gap-2 pt-4">
+                    <div className="w-full flex flex-row gap-2">
+                      <Button asChild variant="outline" className="flex-1">
+                        <Link href={`/event/${event.id}`}>View Invitation</Link>
+                      </Button>
+                      <Button asChild variant="secondary" className="flex-1">
+                        <Link href={`/event/${event.id}/stats`}>
+                            <BarChart3 className="mr-2 h-4 w-4"/>
+                            Stats
                         </Link>
-                     </Button>
-                    <Button 
-                        variant="outline" 
-                        className="flex-1 border-destructive/50 text-destructive hover:bg-destructive/10 hover:text-destructive/90"
-                        onClick={() => handleDeleteClick(event.id)}
-                    >
-                        <Trash2 className="mr-2 h-4 w-4"/>
-                        Delete
-                    </Button>
-                  </div>
-                </CardFooter>
-              </Card>
-            ))}
+                      </Button>
+                    </div>
+                    <div className="w-full flex flex-row gap-2">
+                      <Button asChild variant="outline" className="flex-1 border-yellow-500/50 text-yellow-600 hover:bg-yellow-500/10 hover:text-yellow-700">
+                          <Link href={`/event/${event.id}/edit`}>
+                              <Pencil className="mr-2 h-4 w-4"/>
+                              Edit
+                          </Link>
+                      </Button>
+                      <Button 
+                          variant="outline" 
+                          className="flex-1 border-destructive/50 text-destructive hover:bg-destructive/10 hover:text-destructive/90"
+                          onClick={() => handleDeleteClick(event.id)}
+                      >
+                          <Trash2 className="mr-2 h-4 w-4"/>
+                          Delete
+                      </Button>
+                    </div>
+                  </CardFooter>
+                </Card>
+              );
+            })}
           </div>
         </section>
       )}
