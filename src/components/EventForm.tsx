@@ -18,7 +18,7 @@ import { cn } from '@/lib/utils';
 import { suggestEventTags } from '@/ai/flows/suggest-event-tags';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
 import { Input } from '@/components/ui/input';
@@ -44,14 +44,14 @@ const customStylesSchema = z.object({
   fontDescription: z.string().optional(),
 }).optional();
 
-const eventFormSchema = z.object({
+export const eventFormSchema = z.object({
   name: z.string().min(3, { message: "Event name must be at least 3 characters." }),
   date: z.date({ required_error: "Event date is required." }),
   time: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, { message: "Invalid time format (HH:MM)." }),
   location: z.string().min(3, { message: "Location is required." }),
   description: z.string().min(10, { message: "Description must be at least 10 characters." }),
   mapLink: z.string().url({ message: "Invalid URL for map link." }).optional().or(z.literal('')),
-  images: z.array(z.object({ url: z.string().url({ message: "Invalid image URL." }).or(z.literal('')) })).max(5, {message: "Maximum 5 images allowed."}),
+  images: z.array(z.object({ url: z.string().url({ message: "Invalid image URL." }).optional().or(z.literal('')) })).max(5, {message: "Maximum 5 images allowed."}),
   tags: z.array(z.string().min(1, {message: "Tag cannot be empty."})).max(10, {message: "Maximum 10 tags allowed."}),
   rsvpCollectFields: z.object({
     name: z.boolean().default(true),
@@ -62,15 +62,23 @@ const eventFormSchema = z.object({
   customStyles: customStylesSchema,
 });
 
-type EventFormValues = z.infer<typeof eventFormSchema>;
+export type EventFormValues = z.infer<typeof eventFormSchema>;
 
 interface EventFormProps {
-  onSubmit: (data: Omit<Event, 'id' | 'attendees' | 'userId' | 'views' | 'rsvpCounts' | 'createdAt'>) => void;
+  onSubmit: (data: EventFormValues) => void;
+  initialValues?: Partial<EventFormValues>;
+  submitButtonText?: string;
+  isSubmitting?: boolean;
 }
 
 const colorInputBaseClasses = "h-10 w-full rounded-md border border-input bg-background p-1 ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50";
 
-export default function EventForm({ onSubmit }: EventFormProps) {
+export default function EventForm({ 
+  onSubmit, 
+  initialValues, 
+  submitButtonText = "Create Event",
+  isSubmitting: parentIsSubmitting = false,
+}: EventFormProps) {
   const { toast } = useToast();
   const [isSuggestingTags, setIsSuggestingTags] = useState(false);
   const [currentTagInput, setCurrentTagInput] = useState('');
@@ -79,12 +87,12 @@ export default function EventForm({ onSubmit }: EventFormProps) {
     resolver: zodResolver(eventFormSchema),
     defaultValues: {
       name: '',
-      date: new Date(), // Keep default for date
-      time: '12:00', // Keep default for time
+      date: new Date(), 
+      time: '12:00',
       location: '',
       description: '',
       mapLink: '',
-      images: [{ url: '' }], // Default with one empty image URL field
+      images: [{ url: '' }], 
       tags: [],
       rsvpCollectFields: {
         name: true,
@@ -93,16 +101,24 @@ export default function EventForm({ onSubmit }: EventFormProps) {
       },
       allowEventSharing: true,
       customStyles: {
-        pageBackgroundColor: '#F7FAFC', // Matches --background: hsl(210, 40%, 98%)
-        contentBackgroundColor: '#FFFFFF', // Matches --card: hsl(0, 0%, 100%)
-        textColor: '#363C4A', // Matches --foreground: hsl(220, 15%, 25%)
-        iconAndTitleColor: '#10B981', // Matches --primary: hsl(195, 85%, 42%)
+        pageBackgroundColor: '#F7FAFC', 
+        contentBackgroundColor: '#FFFFFF',
+        textColor: '#363C4A', 
+        iconAndTitleColor: '#10B981',
         fontEventName: 'inherit',
         fontTitles: 'inherit',
         fontDescription: 'inherit',
       },
+      ...initialValues, // Spread initialValues to override defaults
     },
   });
+
+  useEffect(() => {
+    if (initialValues) {
+      form.reset(initialValues); // Reset form with initialValues when they change or are provided
+    }
+  }, [initialValues, form.reset, form]);
+
 
   const watchedCustomStyles = form.watch('customStyles');
   const watchedEventName = form.watch('name');
@@ -160,7 +176,7 @@ export default function EventForm({ onSubmit }: EventFormProps) {
         const currentTags = form.getValues("tags");
         const uniqueNewTags = result.tags.filter(tag => !currentTags.includes(tag));
         const combinedTags = [...currentTags, ...uniqueNewTags].slice(0, 10);
-        replaceTags(combinedTags); 
+        replaceTags(combinedTags.map(tag => tag)); 
         toast({
           title: "Tags Suggested!",
           description: `${result.tags.length > 0 ? 'New tags added if space available.' : 'No new tags suggested or tags already exist.'}`,
@@ -179,15 +195,7 @@ export default function EventForm({ onSubmit }: EventFormProps) {
   };
 
   const processSubmit = (data: EventFormValues) => {
-    const newEventData: Omit<Event, 'id' | 'attendees' | 'userId' | 'views' | 'rsvpCounts' | 'createdAt'> = {
-      ...data,
-      date: format(data.date, 'yyyy-MM-dd'),
-      images: data.images.map(img => img.url).filter(url => url && url.trim() !== ''),
-      tags: data.tags,
-      customStyles: data.customStyles,
-      template: '', 
-    };
-    onSubmit(newEventData);
+    onSubmit(data);
   };
 
 
@@ -195,8 +203,8 @@ export default function EventForm({ onSubmit }: EventFormProps) {
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
       <Card className="w-full shadow-2xl lg:sticky lg:top-24"> 
         <CardHeader>
-          <CardTitle className="text-3xl font-bold text-primary">Create Your Event Invitation</CardTitle>
-          <CardDescription>Fill in the details and customize the appearance of your event page.</CardDescription>
+          <CardTitle className="text-3xl font-bold text-primary">{submitButtonText.includes("Update") ? "Edit Your Event" : "Create Your Event Invitation"}</CardTitle>
+          <CardDescription>{submitButtonText.includes("Update") ? "Modify the details and appearance of your event page." : "Fill in the details and customize the appearance of your event page."}</CardDescription>
         </CardHeader>
         <CardContent>
           <Form {...form}>
@@ -208,17 +216,14 @@ export default function EventForm({ onSubmit }: EventFormProps) {
                   control={form.control}
                   name="date"
                   render={({ field }) => (
-                    <FormItem> {/* Removed flex flex-col for better alignment with sibling */}
+                    <FormItem>
                       <FormLabel>Event Date</FormLabel>
                       <Popover>
                         <PopoverTrigger asChild>
-                          <Button variant={"outline"} className={cn("w-full pl-3 text-left font-normal",!field.value && "text-muted-foreground")}>
-                            {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
-                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                          </Button>
+                          <Button variant={"outline"} className={cn("w-full pl-3 text-left font-normal",!field.value && "text-muted-foreground")}>{field.value ? format(field.value, "PPP") : <span>Pick a date</span>}<CalendarIcon className="ml-auto h-4 w-4 opacity-50" /></Button>
                         </PopoverTrigger>
                         <PopoverContent className="w-auto p-0" align="start">
-                          <Calendar mode="single" selected={field.value} onSelect={field.onChange} disabled={(date) => date < new Date(new Date().setHours(0,0,0,0)) } initialFocus/>
+                          <Calendar mode="single" selected={field.value} onSelect={field.onChange} disabled={(date) => date < new Date(new Date().setHours(0,0,0,0)) && !initialValues } initialFocus/>
                         </PopoverContent>
                       </Popover>
                       <FormMessage />
@@ -245,10 +250,10 @@ export default function EventForm({ onSubmit }: EventFormProps) {
                 <h3 className="text-xl font-semibold flex items-center"><Palette className="mr-2 h-5 w-5 text-primary" />Color Customization</h3>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <FormField control={form.control} name="customStyles.pageBackgroundColor" render={({ field }) => (<FormItem><FormLabel>Page Background Color</FormLabel><FormControl><input type="color" {...field} className={cn(colorInputBaseClasses)}/></FormControl><FormMessage /></FormItem>)}/>
-                <FormField control={form.control} name="customStyles.contentBackgroundColor" render={({ field }) => (<FormItem><FormLabel>Content Card Background</FormLabel><FormControl><input type="color" {...field} className={cn(colorInputBaseClasses)}/></FormControl><FormMessage /></FormItem>)}/>
-                <FormField control={form.control} name="customStyles.textColor" render={({ field }) => (<FormItem><FormLabel>Main Text Color</FormLabel><FormControl><input type="color" {...field} className={cn(colorInputBaseClasses)}/></FormControl><FormMessage /></FormItem>)}/>
-                <FormField control={form.control} name="customStyles.iconAndTitleColor" render={({ field }) => (<FormItem><FormLabel>Icon & Event Title Color</FormLabel><FormControl><input type="color" {...field} className={cn(colorInputBaseClasses)}/></FormControl><FormMessage /></FormItem>)}/>
+                <FormField control={form.control} name="customStyles.pageBackgroundColor" render={({ field }) => (<FormItem><FormLabel>Page Background Color</FormLabel><FormControl><input type="color" {...field} value={field.value || ''} className={cn(colorInputBaseClasses)}/></FormControl><FormMessage /></FormItem>)}/>
+                <FormField control={form.control} name="customStyles.contentBackgroundColor" render={({ field }) => (<FormItem><FormLabel>Content Card Background</FormLabel><FormControl><input type="color" {...field} value={field.value || ''} className={cn(colorInputBaseClasses)}/></FormControl><FormMessage /></FormItem>)}/>
+                <FormField control={form.control} name="customStyles.textColor" render={({ field }) => (<FormItem><FormLabel>Main Text Color</FormLabel><FormControl><input type="color" {...field} value={field.value || ''} className={cn(colorInputBaseClasses)}/></FormControl><FormMessage /></FormItem>)}/>
+                <FormField control={form.control} name="customStyles.iconAndTitleColor" render={({ field }) => (<FormItem><FormLabel>Icon & Event Title Color</FormLabel><FormControl><input type="color" {...field} value={field.value || ''} className={cn(colorInputBaseClasses)}/></FormControl><FormMessage /></FormItem>)}/>
               </div>
 
               <Separator />
@@ -262,8 +267,8 @@ export default function EventForm({ onSubmit }: EventFormProps) {
               </div>
               <Separator />
 
-              <Button type="submit" className="w-full" size="lg" disabled={form.formState.isSubmitting}>
-                {form.formState.isSubmitting ? 'Creating Event...' : 'Create Event'}
+              <Button type="submit" className="w-full" size="lg" disabled={form.formState.isSubmitting || parentIsSubmitting}>
+                {parentIsSubmitting || form.formState.isSubmitting ? `${submitButtonText.replace(" Event", "ing Event...")}` : submitButtonText}
               </Button>
             </form>
           </Form>
@@ -276,15 +281,15 @@ export default function EventForm({ onSubmit }: EventFormProps) {
         <div
           className="rounded-lg shadow-xl overflow-hidden border border-border p-4"
           style={{
-            backgroundColor: watchedCustomStyles?.pageBackgroundColor || '#F7FAFC', // Theme background
+            backgroundColor: watchedCustomStyles?.pageBackgroundColor || '#F7FAFC', 
             minHeight: '600px'
           }}
         >
           <div
             className="max-w-md mx-auto rounded-lg shadow-lg p-6"
             style={{
-              backgroundColor: watchedCustomStyles?.contentBackgroundColor || '#FFFFFF', // Theme card
-              color: watchedCustomStyles?.textColor || '#363C4A', // Theme foreground
+              backgroundColor: watchedCustomStyles?.contentBackgroundColor || '#FFFFFF', 
+              color: watchedCustomStyles?.textColor || '#363C4A', 
             }}
           >
             
@@ -292,7 +297,7 @@ export default function EventForm({ onSubmit }: EventFormProps) {
               <h1
                 className="text-3xl font-bold"
                 style={{
-                  color: watchedCustomStyles?.iconAndTitleColor || '#10B981', // Theme primary
+                  color: watchedCustomStyles?.iconAndTitleColor || '#10B981', 
                   fontFamily: watchedCustomStyles?.fontEventName || 'inherit',
                 }}
               >
@@ -311,7 +316,7 @@ export default function EventForm({ onSubmit }: EventFormProps) {
               <div className="flex items-start">
                 <CalendarDays
                   className="h-5 w-5 mr-3 flex-shrink-0"
-                  style={{ color: watchedCustomStyles?.iconAndTitleColor || '#10B981' }} // Theme primary
+                  style={{ color: watchedCustomStyles?.iconAndTitleColor || '#10B981' }} 
                 />
                 <div>
                   <h3
@@ -330,7 +335,7 @@ export default function EventForm({ onSubmit }: EventFormProps) {
                   className="font-semibold mb-1 flex items-center"
                   style={{ fontFamily: watchedCustomStyles?.fontTitles || 'inherit' }}
                 >
-                  <Tag className="h-5 w-5 mr-2" style={{ color: watchedCustomStyles?.iconAndTitleColor || '#10B981' }}/> {/* Theme primary */}
+                  <Tag className="h-5 w-5 mr-2" style={{ color: watchedCustomStyles?.iconAndTitleColor || '#10B981' }}/> 
                   About
                 </h3>
                 <p
@@ -351,7 +356,7 @@ export default function EventForm({ onSubmit }: EventFormProps) {
                 <Button
                     variant="default"
                     style={{
-                        backgroundColor: watchedCustomStyles?.iconAndTitleColor || '#10B981', // Theme primary
+                        backgroundColor: watchedCustomStyles?.iconAndTitleColor || '#10B981', 
                         color: watchedCustomStyles?.contentBackgroundColor && watchedCustomStyles.iconAndTitleColor ? (parseInt(watchedCustomStyles.iconAndTitleColor.replace('#',''), 16) > 0x7FFFFF ? '#000000' : '#FFFFFF') : '#FFFFFF',
                         fontFamily: watchedCustomStyles?.fontTitles || 'inherit'
                     }}
@@ -365,5 +370,3 @@ export default function EventForm({ onSubmit }: EventFormProps) {
     </div>
   );
 }
-
-    

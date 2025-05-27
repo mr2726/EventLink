@@ -17,7 +17,7 @@ import {
   increment,
   Timestamp,
   arrayUnion,
-  deleteDoc, // Import deleteDoc
+  deleteDoc, 
   type FieldValue
 } from 'firebase/firestore';
 import { useAuth } from '@/contexts/AuthContext';
@@ -41,23 +41,21 @@ const convertEventTimestamps = (eventData: any): Event => {
       return updatedAttendee;
     });
   }
-  // Ensure customStyles exists, defaulting if necessary
   if (!data.customStyles) {
-    data.customStyles = {}; // Default to empty object if not present
+    data.customStyles = {}; 
   }
   return data as Event;
 };
 
 
 export function useEventStorage() {
-  const [events, setEvents] = useState<Event[]>([]); // For homepage display of user's events
-  const [isLoadingEvents, setIsLoadingEvents] = useState(true); // For initial load of user's events
-  const [isInitialized, setIsInitialized] = useState(false); // General initialization
+  const [events, setEvents] = useState<Event[]>([]); 
+  const [isLoadingEvents, setIsLoadingEvents] = useState(true); 
+  const [isInitialized, setIsInitialized] = useState(false); 
   const { user } = useAuth();
   const { toast } = useToast();
 
 
-  // Fetch user's events for the homepage
   useEffect(() => {
     const fetchUserEvents = async () => {
       if (user && user.id) {
@@ -72,22 +70,24 @@ export function useEventStorage() {
           setEvents(userEventsData.sort((a,b) => {
              const dateA = a.createdAt ? new Date(a.createdAt as string).getTime() : 0;
              const dateB = b.createdAt ? new Date(b.createdAt as string).getTime() : 0;
-             return dateB - dateA; // Sort by creation date, newest first
+             return dateB - dateA; 
           }));
         } catch (error) {
           console.error("Error fetching user events:", error);
           setEvents([]);
         } finally {
           setIsLoadingEvents(false);
-          setIsInitialized(true); // Mark as initialized after first attempt
+          setIsInitialized(true); 
         }
       } else if (!user) {
-        setEvents([]); // Clear events if no user
+        setEvents([]); 
         setIsLoadingEvents(false);
         setIsInitialized(true);
       }
     };
-    fetchUserEvents();
+    if (typeof window !== 'undefined') { // Ensure Firestore is only called client-side
+        fetchUserEvents();
+    }
   }, [user]);
 
 
@@ -120,8 +120,6 @@ export function useEventStorage() {
         }
         return createdEvent;
       } else {
-        // Fallback in case getDoc fails immediately (network issue, etc.)
-        // This is less likely with Firestore but good for robustness
         const clientSideCreatedEvent = { ...eventToCreate, id: docRef.id, createdAt: new Date().toISOString() } as any;
         return convertEventTimestamps(clientSideCreatedEvent) as Event;
       }
@@ -174,14 +172,14 @@ export function useEventStorage() {
       const attendeeDataForFirestore: {
         id: string;
         status: RSVPStatus;
-        submittedAt: Timestamp; 
+        submittedAt: FieldValue; 
         name?: string;
         email?: string;
         phone?: string;
       } = {
         id: crypto.randomUUID(),
         status: newStatus,
-        submittedAt: Timestamp.now(), // Changed from serverTimestamp()
+        submittedAt: Timestamp.now(), 
       };
 
       if (details.name && details.name.trim() !== "") {
@@ -213,11 +211,51 @@ export function useEventStorage() {
       const eventDocRef = doc(db, 'events', eventId);
       await deleteDoc(eventDocRef);
       setEvents(prevEvents => prevEvents.filter(event => event.id !== eventId));
-      // Toast notification for success is handled in the component calling this
     } catch (error) {
       console.error("Error deleting event from Firestore:", error);
-      // Toast notification for error is handled in the component calling this
       throw error; 
+    }
+  }, []);
+
+  const updateEvent = useCallback(async (
+    eventId: string, 
+    updatedEventData: Partial<Omit<Event, 'id' | 'userId' | 'createdAt' | 'attendees' | 'views' | 'rsvpCounts'>>
+  ): Promise<Event | null> => {
+    if (!eventId) {
+      throw new Error("Event ID is required to update an event.");
+    }
+    try {
+      const eventDocRef = doc(db, 'events', eventId);
+      
+      // Ensure we don't try to update forbidden fields like userId or createdAt
+      const dataToUpdate = { ...updatedEventData };
+      delete (dataToUpdate as any).id;
+      delete (dataToUpdate as any).userId;
+      delete (dataToUpdate as any).createdAt;
+      delete (dataToUpdate as any).attendees;
+      delete (dataToUpdate as any).views;
+      delete (dataToUpdate as any).rsvpCounts;
+
+
+      await updateDoc(eventDocRef, dataToUpdate);
+      const updatedEventSnap = await getDoc(eventDocRef);
+
+      if (updatedEventSnap.exists()) {
+        const freshEvent = convertEventTimestamps({ id: updatedEventSnap.id, ...updatedEventSnap.data() });
+        setEvents(prevEvents => 
+          prevEvents.map(event => event.id === eventId ? freshEvent : event)
+                     .sort((a,b) => {
+                         const dateA = a.createdAt ? new Date(a.createdAt as string).getTime() : 0;
+                         const dateB = b.createdAt ? new Date(b.createdAt as string).getTime() : 0;
+                         return dateB - dateA;
+                     })
+        );
+        return freshEvent;
+      }
+      return null;
+    } catch (error) {
+      console.error("Error updating event in Firestore:", error);
+      throw error;
     }
   }, []);
 
@@ -229,7 +267,8 @@ export function useEventStorage() {
     getEventById,
     saveRSVP,
     incrementEventView,
-    deleteEvent, // Expose deleteEvent
+    deleteEvent,
+    updateEvent, // Expose updateEvent
     isInitialized
   };
 }
