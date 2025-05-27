@@ -38,6 +38,9 @@ export default function EventPage() {
   const [rsvpPhone, setRsvpPhone] = useState('');
   const [isSubmittingRSVP, setIsSubmittingRSVP] = useState(false);
 
+  const [hoveredButton, setHoveredButton] = useState<RSVPStatus | null>(null);
+
+
   const eventId = typeof params.id === 'string' ? params.id : '';
 
   useEffect(() => {
@@ -66,7 +69,6 @@ export default function EventPage() {
         } else {
           setEvent(null);
           setIsOwner(false);
-          // Optionally show a toast if event not found from DB
            toast({
             title: "Event Not Found",
             description: "The event details could not be loaded from the database. It might have been removed or the link is incorrect.",
@@ -154,9 +156,22 @@ export default function EventPage() {
   const cs = event?.customStyles; 
   const defaultIconColor = 'var(--primary)'; 
   const defaultTextColor = 'var(--foreground)'; 
-  const defaultCardBg = 'var(--card)'; 
-  const defaultButtonBg = cs?.buttonBackgroundColor || 'var(--primary)';
-  const defaultButtonText = cs?.buttonTextColor || 'var(--primary-foreground)';
+  const defaultCardBg = 'var(--card)';
+  
+  // Default button colors from theme
+  const D_GOING_BG = cs?.goingButtonBg || 'var(--primary)';
+  const D_GOING_TEXT = cs?.goingButtonText || 'var(--primary-foreground)';
+  const D_MAYBE_BG = cs?.maybeButtonBg || 'var(--secondary)';
+  const D_MAYBE_TEXT = cs?.maybeButtonText || 'var(--secondary-foreground)';
+  const D_NOT_GOING_BG = cs?.notGoingButtonBg || 'var(--destructive)';
+  const D_NOT_GOING_TEXT = cs?.notGoingButtonText || 'var(--destructive-foreground)';
+
+  const D_ACTIVE_BORDER = cs?.rsvpButtonActiveBorderColor; // Use custom if available, else relies on BG
+  const D_INACTIVE_BORDER = cs?.rsvpButtonInactiveBorderColor || 'var(--border)';
+  const D_INACTIVE_TEXT = cs?.rsvpButtonInactiveTextColor || 'var(--muted-foreground)';
+  
+  const D_HOVER_BG = cs?.rsvpButtonHoverBg || 'var(--primary-hover, var(--primary))'; // Fallback to primary if no specific hover primary
+  const D_HOVER_TEXT = cs?.rsvpButtonHoverText || 'var(--primary-foreground)';
 
 
   if (isLoadingEvent || authIsLoading) {
@@ -202,7 +217,6 @@ export default function EventPage() {
   let formattedDate = "Date not available";
   try {
     if (event.date) {
-      // Ensure date string is treated as UTC to avoid off-by-one day errors
       const [year, month, day] = event.date.split('-').map(Number);
       const dateObj = new Date(Date.UTC(year, month - 1, day));
       if (!isNaN(dateObj.getTime())) { 
@@ -212,6 +226,62 @@ export default function EventPage() {
   } catch (e) {
     console.error("Error formatting date:", e);
   }
+
+  const getButtonStyle = (status: RSVPStatus) => {
+    const isSelected = currentRSVPStatusForSession === status;
+    const isHovered = hoveredButton === status;
+
+    let baseBg, baseText, baseBorderColor;
+
+    switch(status) {
+      case 'going':
+        baseBg = cs?.goingButtonBg || D_GOING_BG;
+        baseText = cs?.goingButtonText || D_GOING_TEXT;
+        break;
+      case 'maybe':
+        baseBg = cs?.maybeButtonBg || D_MAYBE_BG;
+        baseText = cs?.maybeButtonText || D_MAYBE_TEXT;
+        break;
+      case 'not_going':
+        baseBg = cs?.notGoingButtonBg || D_NOT_GOING_BG;
+        baseText = cs?.notGoingButtonText || D_NOT_GOING_TEXT;
+        break;
+      default: // Should not happen
+        baseBg = 'var(--primary)';
+        baseText = 'var(--primary-foreground)';
+    }
+    
+    const activeBorder = cs?.rsvpButtonActiveBorderColor || baseBg; // Default active border to match its bg
+
+    if (isHovered) {
+      return {
+        backgroundColor: cs?.rsvpButtonHoverBg || D_HOVER_BG,
+        color: cs?.rsvpButtonHoverText || D_HOVER_TEXT,
+        borderColor: cs?.rsvpButtonHoverBg || D_HOVER_BG, // Make border match hover bg
+        fontFamily: cs?.fontTitles || 'inherit',
+        opacity: 1,
+      };
+    }
+
+    if (isSelected) {
+      return {
+        backgroundColor: baseBg,
+        color: baseText,
+        borderColor: activeBorder,
+        fontFamily: cs?.fontTitles || 'inherit',
+        opacity: 1,
+      };
+    }
+
+    // Inactive button style (outline)
+    return {
+      backgroundColor: 'transparent',
+      color: cs?.rsvpButtonInactiveTextColor || D_INACTIVE_TEXT,
+      borderColor: cs?.rsvpButtonInactiveBorderColor || D_INACTIVE_BORDER,
+      fontFamily: cs?.fontTitles || 'inherit',
+      opacity: 0.9,
+    };
+  };
 
 
   return (
@@ -245,7 +315,7 @@ export default function EventPage() {
                 onClick={() => setSelectedImage(imgUrl)} 
                 className={cn(
                   "h-16 w-16 rounded-md overflow-hidden border-2 focus:outline-none focus:ring-2",
-                  selectedImage === imgUrl ? "border-primary ring-primary" : "border-transparent hover:border-primary/50 ring-transparent"
+                  selectedImage === imgUrl ? "ring-offset-2" : "border-transparent hover:border-primary/50 ring-transparent"
                 )}
                 style={{borderColor: selectedImage === imgUrl ? (cs?.iconAndTitleColor || defaultIconColor) : 'transparent',
                         ringColor: selectedImage === imgUrl ? (cs?.iconAndTitleColor || defaultIconColor) : 'transparent'
@@ -345,7 +415,7 @@ export default function EventPage() {
 
         <CardFooter 
             className="p-6 md:p-8 border-t flex-col space-y-6"
-            style={{backgroundColor: cs?.contentBackgroundColor ? `${cs.contentBackgroundColor}99` : 'var(--muted-background / 0.5)'}} 
+            style={{backgroundColor: cs?.contentBackgroundColor ? `${cs.contentBackgroundColor}E6` : 'hsla(var(--muted-background-hsl), 0.9)'}} // 90% opacity
         >
           <div className="w-full space-y-4 text-center">
             <h3 className="text-2xl font-semibold mb-4" style={{color: cs?.textColor || defaultTextColor, fontFamily: cs?.fontTitles || 'inherit'}}>Will you attend?</h3>
@@ -385,13 +455,12 @@ export default function EventPage() {
                   key={status}
                   variant={currentRSVPStatusForSession === status ? 'default' : 'outline'}
                   size="lg"
-                  className="flex-1"
+                  className="flex-1 transition-all duration-150 ease-in-out"
                   onClick={() => handleRSVP(status)}
                   disabled={isSubmittingRSVP}
-                  style={ currentRSVPStatusForSession === status ? 
-                    { backgroundColor: cs?.buttonBackgroundColor || defaultButtonBg, color: cs?.buttonTextColor || defaultButtonText, fontFamily: cs?.fontTitles || 'inherit', borderColor: cs?.buttonBackgroundColor || defaultButtonBg } : 
-                    { borderColor: cs?.buttonBackgroundColor || defaultButtonBg, color: cs?.buttonBackgroundColor || defaultButtonBg, fontFamily: cs?.fontTitles || 'inherit'}
-                  }
+                  style={getButtonStyle(status)}
+                  onMouseEnter={() => setHoveredButton(status)}
+                  onMouseLeave={() => setHoveredButton(null)}
                 >
                   {isSubmittingRSVP && currentRSVPStatusForSession === status ? 'Submitting...' : ''}
                   {status === 'going' && <CheckCircle className="mr-2 h-5 w-5" />}
@@ -417,8 +486,16 @@ export default function EventPage() {
                 <Input type="text" value={eventUrl} readOnly className="bg-background/70" aria-label="Event Link" style={{fontFamily: cs?.fontDescription || 'inherit'}}/>
                 <Button onClick={handleCopyLink} variant="outline" size="icon" aria-label="Copy event link" 
                   style={{
-                      borderColor: cs?.buttonBackgroundColor || defaultButtonBg, 
-                      color: cs?.buttonBackgroundColor || defaultButtonBg
+                      borderColor: cs?.rsvpButtonInactiveBorderColor || D_INACTIVE_BORDER, 
+                      color: cs?.rsvpButtonInactiveTextColor || D_INACTIVE_TEXT,
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = cs?.rsvpButtonHoverBg || D_HOVER_BG;
+                    e.currentTarget.style.color = cs?.rsvpButtonHoverText || D_HOVER_TEXT;
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = 'transparent';
+                    e.currentTarget.style.color = cs?.rsvpButtonInactiveTextColor || D_INACTIVE_TEXT;
                   }}
                 >
                   <Copy className="h-5 w-5" />

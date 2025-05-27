@@ -12,7 +12,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { CalendarIcon, Sparkles, PlusCircle, MinusCircle, Tag, User, AtSign, Phone, Share2, Palette, Type, Eye, CalendarDays } from 'lucide-react';
+import { CalendarIcon, Sparkles, PlusCircle, MinusCircle, Tag, User, AtSign, Phone, Share2, Palette, Type, Eye, CalendarDays, CheckCircle, HelpCircle, XCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { suggestEventTags } from '@/ai/flows/suggest-event-tags';
@@ -42,8 +42,21 @@ const customStylesSchema = z.object({
   fontEventName: z.string().optional(),
   fontTitles: z.string().optional(),
   fontDescription: z.string().optional(),
-  buttonBackgroundColor: z.string().optional(),
-  buttonTextColor: z.string().optional(),
+  
+  // New RSVP Button Colors
+  goingButtonBg: z.string().optional(),
+  goingButtonText: z.string().optional(),
+  maybeButtonBg: z.string().optional(),
+  maybeButtonText: z.string().optional(),
+  notGoingButtonBg: z.string().optional(),
+  notGoingButtonText: z.string().optional(),
+  
+  rsvpButtonActiveBorderColor: z.string().optional(),
+  rsvpButtonInactiveBorderColor: z.string().optional(),
+  rsvpButtonInactiveTextColor: z.string().optional(),
+
+  rsvpButtonHoverBg: z.string().optional(),
+  rsvpButtonHoverText: z.string().optional(),
 }).optional();
 
 export const eventFormSchema = z.object({
@@ -103,15 +116,28 @@ export default function EventForm({
       },
       allowEventSharing: true,
       customStyles: {
-        pageBackgroundColor: '#F7FAFC', // Corresponds to HSL 210 40% 98%
-        contentBackgroundColor: '#FFFFFF', // Corresponds to HSL 0 0% 100%
-        textColor: '#363C4A', // Corresponds to HSL 220 15% 25%
-        iconAndTitleColor: '#10B981', // Corresponds to HSL 195 85% 42% (Primary)
+        pageBackgroundColor: '#FFFAEBD7', // Desaturated Peach
+        contentBackgroundColor: '#FFFFFF', // White
+        textColor: '#363C4A', // Dark Desaturated Blue (like current foreground)
+        iconAndTitleColor: '#FF7F50', // Coral (Primary)
         fontEventName: 'inherit',
         fontTitles: 'inherit',
         fontDescription: 'inherit',
-        buttonBackgroundColor: '#10B981', // Corresponds to HSL 195 85% 42% (Primary)
-        buttonTextColor: '#FFFFFF', // Corresponds to HSL 0 0% 100% (Primary Foreground)
+        
+        // Default RSVP button colors
+        goingButtonBg: '#FF7F50', // Coral (Primary)
+        goingButtonText: '#FFFFFF', // White
+        maybeButtonBg: '#DAA520', // Muted Gold (Accent) - for a distinct look
+        maybeButtonText: '#FFFFFF', // White
+        notGoingButtonBg: '#A9A9A9', // DarkGray - for a more neutral "not going"
+        notGoingButtonText: '#FFFFFF', // White
+        
+        rsvpButtonActiveBorderColor: '#FF7F50', // Coral (Matches active bg for solid look)
+        rsvpButtonInactiveBorderColor: '#D3D3D3', // LightGray (Neutral border for inactive)
+        rsvpButtonInactiveTextColor: '#363C4A', // Dark text for inactive (readable)
+
+        rsvpButtonHoverBg: '#E06F4A', // Darker Coral
+        rsvpButtonHoverText: '#FFFFFF', // White
       },
       ...initialValues,
     },
@@ -131,20 +157,31 @@ export default function EventForm({
             rsvpCollectFields: initialValues.rsvpCollectFields || { name: true, email: false, phone: false },
             allowEventSharing: initialValues.allowEventSharing !== undefined ? initialValues.allowEventSharing : true,
             customStyles: {
-                pageBackgroundColor: initialValues.customStyles?.pageBackgroundColor || '#F7FAFC',
+                pageBackgroundColor: initialValues.customStyles?.pageBackgroundColor || '#FFFAEBD7',
                 contentBackgroundColor: initialValues.customStyles?.contentBackgroundColor || '#FFFFFF',
                 textColor: initialValues.customStyles?.textColor || '#363C4A',
-                iconAndTitleColor: initialValues.customStyles?.iconAndTitleColor || '#10B981',
+                iconAndTitleColor: initialValues.customStyles?.iconAndTitleColor || '#FF7F50',
                 fontEventName: initialValues.customStyles?.fontEventName || 'inherit',
                 fontTitles: initialValues.customStyles?.fontTitles || 'inherit',
                 fontDescription: initialValues.customStyles?.fontDescription || 'inherit',
-                buttonBackgroundColor: initialValues.customStyles?.buttonBackgroundColor || '#10B981',
-                buttonTextColor: initialValues.customStyles?.buttonTextColor || '#FFFFFF',
+
+                goingButtonBg: initialValues.customStyles?.goingButtonBg || '#FF7F50',
+                goingButtonText: initialValues.customStyles?.goingButtonText || '#FFFFFF',
+                maybeButtonBg: initialValues.customStyles?.maybeButtonBg || '#DAA520',
+                maybeButtonText: initialValues.customStyles?.maybeButtonText || '#FFFFFF',
+                notGoingButtonBg: initialValues.customStyles?.notGoingButtonBg || '#A9A9A9',
+                notGoingButtonText: initialValues.customStyles?.notGoingButtonText || '#FFFFFF',
+
+                rsvpButtonActiveBorderColor: initialValues.customStyles?.rsvpButtonActiveBorderColor || '#FF7F50',
+                rsvpButtonInactiveBorderColor: initialValues.customStyles?.rsvpButtonInactiveBorderColor || '#D3D3D3',
+                rsvpButtonInactiveTextColor: initialValues.customStyles?.rsvpButtonInactiveTextColor || '#363C4A',
+                rsvpButtonHoverBg: initialValues.customStyles?.rsvpButtonHoverBg || '#E06F4A',
+                rsvpButtonHoverText: initialValues.customStyles?.rsvpButtonHoverText || '#FFFFFF',
             },
         };
         form.reset(transformedInitialValues);
     }
-  }, [initialValues, form.reset, form]);
+  }, [initialValues, form]);
 
 
   const watchedCustomStyles = form.watch('customStyles');
@@ -230,7 +267,7 @@ export default function EventForm({
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
       <Card className="w-full shadow-2xl lg:sticky lg:top-24"> 
         <CardHeader>
-          <CardTitle className="text-3xl font-bold text-primary">{submitButtonText.includes("Update") ? "Edit Your Event" : "Create Your Event Invitation"}</CardTitle>
+          <CardTitle className="text-3xl font-bold" style={{color: 'var(--primary)'}}>{submitButtonText.includes("Update") ? "Edit Your Event" : "Create Your Event Invitation"}</CardTitle>
           <CardDescription>{submitButtonText.includes("Update") ? "Modify the details and appearance of your event page." : "Fill in the details and customize the appearance of your event page."}</CardDescription>
         </CardHeader>
         <CardContent>
@@ -243,7 +280,7 @@ export default function EventForm({
                   control={form.control}
                   name="date"
                   render={({ field }) => (
-                    <FormItem> {/* Removed flex flex-col here */}
+                    <FormItem> 
                       <FormLabel>Event Date</FormLabel>
                       <Popover>
                         <PopoverTrigger asChild>
@@ -268,26 +305,42 @@ export default function EventForm({
               <FormItem> <FormLabel>Tags (Up to 10)</FormLabel> <div className="flex items-center gap-2 mb-2"> <FormControl><Input placeholder="Add a tag (e.g., birthday)" value={currentTagInput} onChange={(e) => setCurrentTagInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddTag();}}}/></FormControl> <Button type="button" variant="outline" onClick={handleAddTag}>Add Tag</Button> </div> <div className="flex flex-wrap gap-2 mb-2"> {tagFields.map((_item, index) => ( <Badge key={_item.id} variant="secondary" className="flex items-center gap-1"> <span>{form.getValues("tags")[index]}</span> <button type="button" onClick={() => removeTag(index)} className="ml-1 focus:outline-none"> <MinusCircle className="h-3 w-3" /> </button> </Badge> ))} </div> <Button type="button" variant="outline" size="sm" onClick={handleSuggestTags} disabled={isSuggestingTags}> <Sparkles className="mr-2 h-4 w-4" /> {isSuggestingTags ? 'Suggesting...' : 'Suggest Tags with AI'} </Button> <FormMessage>{form.formState.errors.tags?.message || form.formState.errors.tags?.root?.message}</FormMessage> </FormItem>
 
               
-              <FormItem> <FormLabel>RSVP Information to Collect</FormLabel> <FormDescription>Select which details guests should provide when they RSVP.</FormDescription> <div className="space-y-3 pt-2"> <FormField control={form.control} name="rsvpCollectFields.name" render={({ field }) => ( <FormItem className="flex flex-row items-center space-x-3 space-y-0 p-3 border rounded-md shadow-sm hover:bg-muted/50"> <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange}/></FormControl> <FormLabel className="font-normal flex items-center cursor-pointer"> <User className="mr-2 h-5 w-5 text-primary" /> Collect Name </FormLabel> </FormItem> )}/> <FormField control={form.control} name="rsvpCollectFields.email" render={({ field }) => ( <FormItem className="flex flex-row items-center space-x-3 space-y-0 p-3 border rounded-md shadow-sm hover:bg-muted/50"> <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange}/></FormControl> <FormLabel className="font-normal flex items-center cursor-pointer"> <AtSign className="mr-2 h-5 w-5 text-primary" /> Collect Email Address </FormLabel> </FormItem> )}/> <FormField control={form.control} name="rsvpCollectFields.phone" render={({ field }) => ( <FormItem className="flex flex-row items-center space-x-3 space-y-0 p-3 border rounded-md shadow-sm hover:bg-muted/50"> <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange}/></FormControl> <FormLabel className="font-normal flex items-center cursor-pointer"> <Phone className="mr-2 h-5 w-5 text-primary" /> Collect Phone Number </FormLabel> </FormItem> )}/> </div> </FormItem>
-              <FormField control={form.control} name="allowEventSharing" render={({ field }) => ( <FormItem className="flex flex-row items-center space-x-3 space-y-0 p-3 border rounded-md shadow-sm hover:bg-muted/50"> <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange}/></FormControl> <div className="space-y-0.5"> <FormLabel className="font-normal flex items-center cursor-pointer"> <Share2 className="mr-2 h-5 w-5 text-primary" /> Allow Event Sharing </FormLabel> <FormDescription> If checked, guests will see a "Share this Event" section on the invitation page. </FormDescription> </div> </FormItem> )}/>
+              <FormItem> <FormLabel>RSVP Information to Collect</FormLabel> <FormDescription>Select which details guests should provide when they RSVP.</FormDescription> <div className="space-y-3 pt-2"> <FormField control={form.control} name="rsvpCollectFields.name" render={({ field }) => ( <FormItem className="flex flex-row items-center space-x-3 space-y-0 p-3 border rounded-md shadow-sm hover:bg-muted/50"> <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange}/></FormControl> <FormLabel className="font-normal flex items-center cursor-pointer"> <User className="mr-2 h-5 w-5" style={{color: 'var(--primary)'}} /> Collect Name </FormLabel> </FormItem> )}/> <FormField control={form.control} name="rsvpCollectFields.email" render={({ field }) => ( <FormItem className="flex flex-row items-center space-x-3 space-y-0 p-3 border rounded-md shadow-sm hover:bg-muted/50"> <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange}/></FormControl> <FormLabel className="font-normal flex items-center cursor-pointer"> <AtSign className="mr-2 h-5 w-5" style={{color: 'var(--primary)'}} /> Collect Email Address </FormLabel> </FormItem> )}/> <FormField control={form.control} name="rsvpCollectFields.phone" render={({ field }) => ( <FormItem className="flex flex-row items-center space-x-3 space-y-0 p-3 border rounded-md shadow-sm hover:bg-muted/50"> <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange}/></FormControl> <FormLabel className="font-normal flex items-center cursor-pointer"> <Phone className="mr-2 h-5 w-5" style={{color: 'var(--primary)'}} /> Collect Phone Number </FormLabel> </FormItem> )}/> </div> </FormItem>
+              <FormField control={form.control} name="allowEventSharing" render={({ field }) => ( <FormItem className="flex flex-row items-center space-x-3 space-y-0 p-3 border rounded-md shadow-sm hover:bg-muted/50"> <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange}/></FormControl> <div className="space-y-0.5"> <FormLabel className="font-normal flex items-center cursor-pointer"> <Share2 className="mr-2 h-5 w-5" style={{color: 'var(--primary)'}} /> Allow Event Sharing </FormLabel> <FormDescription> If checked, guests will see a "Share this Event" section on the invitation page. </FormDescription> </div> </FormItem> )}/>
 
               
               <Separator />
               <div className="space-y-2">
-                <h3 className="text-xl font-semibold flex items-center"><Palette className="mr-2 h-5 w-5 text-primary" />Color Customization</h3>
+                <h3 className="text-xl font-semibold flex items-center"><Palette className="mr-2 h-5 w-5" style={{color: 'var(--primary)'}}/>General Appearance</h3>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <FormField control={form.control} name="customStyles.pageBackgroundColor" render={({ field }) => (<FormItem><FormLabel>Page Background Color</FormLabel><FormControl><input type="color" {...field} value={field.value || ''} className={cn(colorInputBaseClasses)}/></FormControl><FormMessage /></FormItem>)}/>
+                <FormField control={form.control} name="customStyles.pageBackgroundColor" render={({ field }) => (<FormItem><FormLabel>Page Background</FormLabel><FormControl><input type="color" {...field} value={field.value || ''} className={cn(colorInputBaseClasses)}/></FormControl><FormMessage /></FormItem>)}/>
                 <FormField control={form.control} name="customStyles.contentBackgroundColor" render={({ field }) => (<FormItem><FormLabel>Content Card Background</FormLabel><FormControl><input type="color" {...field} value={field.value || ''} className={cn(colorInputBaseClasses)}/></FormControl><FormMessage /></FormItem>)}/>
                 <FormField control={form.control} name="customStyles.textColor" render={({ field }) => (<FormItem><FormLabel>Main Text Color</FormLabel><FormControl><input type="color" {...field} value={field.value || ''} className={cn(colorInputBaseClasses)}/></FormControl><FormMessage /></FormItem>)}/>
-                <FormField control={form.control} name="customStyles.iconAndTitleColor" render={({ field }) => (<FormItem><FormLabel>Icon & Event Title Color</FormLabel><FormControl><input type="color" {...field} value={field.value || ''} className={cn(colorInputBaseClasses)}/></FormControl><FormMessage /></FormItem>)}/>
-                <FormField control={form.control} name="customStyles.buttonBackgroundColor" render={({ field }) => (<FormItem><FormLabel>Button Background Color</FormLabel><FormControl><input type="color" {...field} value={field.value || ''} className={cn(colorInputBaseClasses)}/></FormControl><FormMessage /></FormItem>)}/>
-                <FormField control={form.control} name="customStyles.buttonTextColor" render={({ field }) => (<FormItem><FormLabel>Button Text Color</FormLabel><FormControl><input type="color" {...field} value={field.value || ''} className={cn(colorInputBaseClasses)}/></FormControl><FormMessage /></FormItem>)}/>
+                <FormField control={form.control} name="customStyles.iconAndTitleColor" render={({ field }) => (<FormItem><FormLabel>Icon &amp; Event Title Color</FormLabel><FormControl><input type="color" {...field} value={field.value || ''} className={cn(colorInputBaseClasses)}/></FormControl><FormMessage /></FormItem>)}/>
               </div>
 
               <Separator />
               <div className="space-y-2">
-                 <h3 className="text-xl font-semibold flex items-center"><Type className="mr-2 h-5 w-5 text-primary" />Font Customization</h3>
+                <h3 className="text-xl font-semibold flex items-center"><Palette className="mr-2 h-5 w-5" style={{color: 'var(--primary)'}}/>RSVP Button Colors</h3>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+                <FormField control={form.control} name="customStyles.goingButtonBg" render={({ field }) => (<FormItem><FormLabel>Going Button Background</FormLabel><FormControl><input type="color" {...field} value={field.value || ''} className={cn(colorInputBaseClasses)}/></FormControl><FormMessage /></FormItem>)}/>
+                <FormField control={form.control} name="customStyles.goingButtonText" render={({ field }) => (<FormItem><FormLabel>Going Button Text</FormLabel><FormControl><input type="color" {...field} value={field.value || ''} className={cn(colorInputBaseClasses)}/></FormControl><FormMessage /></FormItem>)}/>
+                <FormField control={form.control} name="customStyles.maybeButtonBg" render={({ field }) => (<FormItem><FormLabel>Maybe Button Background</FormLabel><FormControl><input type="color" {...field} value={field.value || ''} className={cn(colorInputBaseClasses)}/></FormControl><FormMessage /></FormItem>)}/>
+                <FormField control={form.control} name="customStyles.maybeButtonText" render={({ field }) => (<FormItem><FormLabel>Maybe Button Text</FormLabel><FormControl><input type="color" {...field} value={field.value || ''} className={cn(colorInputBaseClasses)}/></FormControl><FormMessage /></FormItem>)}/>
+                <FormField control={form.control} name="customStyles.notGoingButtonBg" render={({ field }) => (<FormItem><FormLabel>Not Going Button Background</FormLabel><FormControl><input type="color" {...field} value={field.value || ''} className={cn(colorInputBaseClasses)}/></FormControl><FormMessage /></FormItem>)}/>
+                <FormField control={form.control} name="customStyles.notGoingButtonText" render={({ field }) => (<FormItem><FormLabel>Not Going Button Text</FormLabel><FormControl><input type="color" {...field} value={field.value || ''} className={cn(colorInputBaseClasses)}/></FormControl><FormMessage /></FormItem>)}/>
+                <FormField control={form.control} name="customStyles.rsvpButtonActiveBorderColor" render={({ field }) => (<FormItem><FormLabel>Active Button Border</FormLabel><FormControl><input type="color" {...field} value={field.value || ''} className={cn(colorInputBaseClasses)}/></FormControl><FormMessage /></FormItem>)}/>
+                <FormField control={form.control} name="customStyles.rsvpButtonInactiveBorderColor" render={({ field }) => (<FormItem><FormLabel>Inactive Button Border</FormLabel><FormControl><input type="color" {...field} value={field.value || ''} className={cn(colorInputBaseClasses)}/></FormControl><FormMessage /></FormItem>)}/>
+                <FormField control={form.control} name="customStyles.rsvpButtonInactiveTextColor" render={({ field }) => (<FormItem><FormLabel>Inactive Button Text</FormLabel><FormControl><input type="color" {...field} value={field.value || ''} className={cn(colorInputBaseClasses)}/></FormControl><FormMessage /></FormItem>)}/>
+                <FormField control={form.control} name="customStyles.rsvpButtonHoverBg" render={({ field }) => (<FormItem><FormLabel>Button Hover Background</FormLabel><FormControl><input type="color" {...field} value={field.value || ''} className={cn(colorInputBaseClasses)}/></FormControl><FormMessage /></FormItem>)}/>
+                <FormField control={form.control} name="customStyles.rsvpButtonHoverText" render={({ field }) => (<FormItem><FormLabel>Button Hover Text</FormLabel><FormControl><input type="color" {...field} value={field.value || ''} className={cn(colorInputBaseClasses)}/></FormControl><FormMessage /></FormItem>)}/>
+              </div>
+
+              <Separator />
+              <div className="space-y-2">
+                 <h3 className="text-xl font-semibold flex items-center"><Type className="mr-2 h-5 w-5" style={{color: 'var(--primary)'}}/>Font Customization</h3>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <FormField control={form.control} name="customStyles.fontEventName" render={({ field }) => ( <FormItem> <FormLabel>Event Name Font</FormLabel> <Select onValueChange={field.onChange} defaultValue={field.value}> <FormControl><SelectTrigger><SelectValue placeholder="Select font" /></SelectTrigger></FormControl> <SelectContent>{PREDEFINED_FONTS.map(f => <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>)}</SelectContent> </Select> <FormMessage /> </FormItem> )}/>
@@ -296,7 +349,7 @@ export default function EventForm({
               </div>
               <Separator />
 
-              <Button type="submit" className="w-full" size="lg" disabled={form.formState.isSubmitting || parentIsSubmitting}>
+              <Button type="submit" className="w-full" size="lg" disabled={form.formState.isSubmitting || parentIsSubmitting} style={{backgroundColor: 'var(--accent)', color: 'var(--accent-foreground)'}}>
                 {parentIsSubmitting || form.formState.isSubmitting ? `${submitButtonText.replace(" Event", "ing Event...")}` : submitButtonText}
               </Button>
             </form>
@@ -306,11 +359,11 @@ export default function EventForm({
 
       
       <div className="w-full lg:sticky lg:top-24"> 
-        <h3 className="text-2xl font-semibold mb-4 text-center flex items-center justify-center"><Eye className="mr-2 h-6 w-6 text-primary" /> Live Preview</h3>
+        <h3 className="text-2xl font-semibold mb-4 text-center flex items-center justify-center"><Eye className="mr-2 h-6 w-6" style={{color: 'var(--primary)'}} /> Live Preview</h3>
         <div
           className="rounded-lg shadow-xl overflow-hidden border border-border p-4"
           style={{
-            backgroundColor: watchedCustomStyles?.pageBackgroundColor || '#F7FAFC', 
+            backgroundColor: watchedCustomStyles?.pageBackgroundColor || '#FFFAEBD7', 
             minHeight: '600px'
           }}
         >
@@ -326,7 +379,7 @@ export default function EventForm({
               <h1
                 className="text-3xl font-bold"
                 style={{
-                  color: watchedCustomStyles?.iconAndTitleColor || '#10B981', 
+                  color: watchedCustomStyles?.iconAndTitleColor || '#FF7F50', 
                   fontFamily: watchedCustomStyles?.fontEventName || 'inherit',
                 }}
               >
@@ -345,14 +398,14 @@ export default function EventForm({
               <div className="flex items-start">
                 <CalendarDays
                   className="h-5 w-5 mr-3 flex-shrink-0"
-                  style={{ color: watchedCustomStyles?.iconAndTitleColor || '#10B981' }} 
+                  style={{ color: watchedCustomStyles?.iconAndTitleColor || '#FF7F50' }} 
                 />
                 <div>
                   <h3
                     className="font-semibold"
                     style={{ fontFamily: watchedCustomStyles?.fontTitles || 'inherit' }}
                   >
-                    Date & Time
+                    Date &amp; Time
                   </h3>
                   <p style={{fontFamily: watchedCustomStyles?.fontDescription || 'inherit'}}>
                     {watchedDate ? format(watchedDate, "PPP") : "Select a date"} at {watchedTime || "12:00"}
@@ -364,7 +417,7 @@ export default function EventForm({
                   className="font-semibold mb-1 flex items-center"
                   style={{ fontFamily: watchedCustomStyles?.fontTitles || 'inherit' }}
                 >
-                  <Tag className="h-5 w-5 mr-2" style={{ color: watchedCustomStyles?.iconAndTitleColor || '#10B981' }}/> 
+                  <Tag className="h-5 w-5 mr-2" style={{ color: watchedCustomStyles?.iconAndTitleColor || '#FF7F50' }}/> 
                   About
                 </h3>
                 <p
@@ -382,16 +435,45 @@ export default function EventForm({
                     className="font-semibold mb-2"
                     style={{ fontFamily: watchedCustomStyles?.fontTitles || 'inherit' }}
                 >Will you attend?</h3>
-                <Button
-                    variant="default"
-                    style={{
-                        backgroundColor: watchedCustomStyles?.buttonBackgroundColor || '#10B981', 
-                        color: watchedCustomStyles?.buttonTextColor || '#FFFFFF',
-                        fontFamily: watchedCustomStyles?.fontTitles || 'inherit'
-                    }}
-                >
-                    RSVP Now (Preview)
-                </Button>
+                <div className="flex flex-col sm:flex-row justify-center gap-2">
+                    <Button
+                        type="button"
+                        variant="default"
+                        className="flex-1"
+                        style={{
+                            backgroundColor: watchedCustomStyles?.goingButtonBg || '#FF7F50', 
+                            color: watchedCustomStyles?.goingButtonText || '#FFFFFF',
+                            borderColor: watchedCustomStyles?.rsvpButtonActiveBorderColor || watchedCustomStyles?.goingButtonBg || '#FF7F50',
+                            fontFamily: watchedCustomStyles?.fontTitles || 'inherit'
+                        }}
+                    >
+                        <CheckCircle className="mr-2 h-5 w-5" /> Going
+                    </Button>
+                     <Button
+                        type="button"
+                        variant="outline"
+                        className="flex-1"
+                        style={{
+                            borderColor: watchedCustomStyles?.rsvpButtonInactiveBorderColor || '#D3D3D3',
+                            color: watchedCustomStyles?.rsvpButtonInactiveTextColor || '#363C4A',
+                            fontFamily: watchedCustomStyles?.fontTitles || 'inherit'
+                        }}
+                    >
+                       <HelpCircle className="mr-2 h-5 w-5" /> Maybe
+                    </Button>
+                    <Button
+                        type="button"
+                        variant="outline"
+                        className="flex-1"
+                         style={{
+                            borderColor: watchedCustomStyles?.rsvpButtonInactiveBorderColor || '#D3D3D3',
+                            color: watchedCustomStyles?.rsvpButtonInactiveTextColor || '#363C4A',
+                            fontFamily: watchedCustomStyles?.fontTitles || 'inherit'
+                        }}
+                    >
+                        <XCircle className="mr-2 h-5 w-5" /> Not Going
+                    </Button>
+                </div>
             </div>
           </div>
         </div>

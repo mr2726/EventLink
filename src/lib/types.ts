@@ -9,8 +9,21 @@ export interface CustomEventStyles {
   fontEventName?: string;
   fontTitles?: string; // For section headers like Date, Time, Location
   fontDescription?: string; // For main event description text
-  buttonBackgroundColor?: string;
-  buttonTextColor?: string;
+  
+  // RSVP Button Colors - New granular controls
+  goingButtonBg?: string;
+  goingButtonText?: string;
+  maybeButtonBg?: string;
+  maybeButtonText?: string;
+  notGoingButtonBg?: string;
+  notGoingButtonText?: string;
+  
+  rsvpButtonActiveBorderColor?: string; // Border for the selected/active RSVP button
+  rsvpButtonInactiveBorderColor?: string; // Border for unselected/inactive RSVP buttons
+  rsvpButtonInactiveTextColor?: string; // Text color for unselected/inactive RSVP buttons
+
+  rsvpButtonHoverBg?: string; // General hover background for RSVP buttons
+  rsvpButtonHoverText?: string; // General hover text for RSVP buttons
 }
 
 export interface Event {
