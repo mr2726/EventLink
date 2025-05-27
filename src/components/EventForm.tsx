@@ -60,11 +60,11 @@ const customStylesSchema = z.object({
 }).optional();
 
 export const eventFormSchema = z.object({
-  name: z.string().min(3, { message: "Event name must be at least 3 characters." }),
+  name: z.string().min(3, { message: "Event name must be at least 3 characters." }).optional().or(z.literal('')),
   date: z.date({ required_error: "Event date is required." }),
   time: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, { message: "Invalid time format (HH:MM)." }),
-  location: z.string().min(3, { message: "Location is required." }),
-  description: z.string().min(10, { message: "Description must be at least 10 characters." }),
+  location: z.string().min(3, { message: "Location is required." }).optional().or(z.literal('')),
+  description: z.string().min(10, { message: "Description must be at least 10 characters." }).optional().or(z.literal('')),
   mapLink: z.string().url({ message: "Invalid URL for map link." }).optional().or(z.literal('')),
   images: z.array(z.object({ url: z.string().url({ message: "Invalid image URL." }).optional().or(z.literal('')) })).max(5, {message: "Maximum 5 images allowed."}),
   tags: z.array(z.string().min(1, {message: "Tag cannot be empty."})).max(10, {message: "Maximum 10 tags allowed."}),
@@ -116,28 +116,27 @@ export default function EventForm({
       },
       allowEventSharing: true,
       customStyles: {
-        pageBackgroundColor: '#FFFAEBD7', // Desaturated Peach
-        contentBackgroundColor: '#FFFFFF', // White
-        textColor: '#363C4A', // Dark Desaturated Blue (like current foreground)
-        iconAndTitleColor: '#FF7F50', // Coral (Primary)
+        pageBackgroundColor: '#F7FAFC', 
+        contentBackgroundColor: '#FFFFFF',
+        textColor: '#363C4A', 
+        iconAndTitleColor: '#10B981',
         fontEventName: 'inherit',
         fontTitles: 'inherit',
         fontDescription: 'inherit',
         
-        // Default RSVP button colors
-        goingButtonBg: '#FF7F50', // Coral (Primary)
-        goingButtonText: '#FFFFFF', // White
-        maybeButtonBg: '#DAA520', // Muted Gold (Accent) - for a distinct look
-        maybeButtonText: '#FFFFFF', // White
-        notGoingButtonBg: '#A9A9A9', // DarkGray - for a more neutral "not going"
-        notGoingButtonText: '#FFFFFF', // White
+        goingButtonBg: '#10B981', 
+        goingButtonText: '#FFFFFF',
+        maybeButtonBg: '#A0AEC0', 
+        maybeButtonText: '#1A202C', 
+        notGoingButtonBg: '#E53E3E',
+        notGoingButtonText: '#FFFFFF', 
         
-        rsvpButtonActiveBorderColor: '#FF7F50', // Coral (Matches active bg for solid look)
-        rsvpButtonInactiveBorderColor: '#D3D3D3', // LightGray (Neutral border for inactive)
-        rsvpButtonInactiveTextColor: '#363C4A', // Dark text for inactive (readable)
+        rsvpButtonActiveBorderColor: '#10B981', 
+        rsvpButtonInactiveBorderColor: '#CBD5E0',
+        rsvpButtonInactiveTextColor: '#4A5568', 
 
-        rsvpButtonHoverBg: '#E06F4A', // Darker Coral
-        rsvpButtonHoverText: '#FFFFFF', // White
+        rsvpButtonHoverBg: '#0E9F6E', 
+        rsvpButtonHoverText: '#FFFFFF', 
       },
       ...initialValues,
     },
@@ -157,25 +156,25 @@ export default function EventForm({
             rsvpCollectFields: initialValues.rsvpCollectFields || { name: true, email: false, phone: false },
             allowEventSharing: initialValues.allowEventSharing !== undefined ? initialValues.allowEventSharing : true,
             customStyles: {
-                pageBackgroundColor: initialValues.customStyles?.pageBackgroundColor || '#FFFAEBD7',
+                pageBackgroundColor: initialValues.customStyles?.pageBackgroundColor || '#F7FAFC',
                 contentBackgroundColor: initialValues.customStyles?.contentBackgroundColor || '#FFFFFF',
                 textColor: initialValues.customStyles?.textColor || '#363C4A',
-                iconAndTitleColor: initialValues.customStyles?.iconAndTitleColor || '#FF7F50',
+                iconAndTitleColor: initialValues.customStyles?.iconAndTitleColor || '#10B981',
                 fontEventName: initialValues.customStyles?.fontEventName || 'inherit',
                 fontTitles: initialValues.customStyles?.fontTitles || 'inherit',
                 fontDescription: initialValues.customStyles?.fontDescription || 'inherit',
 
-                goingButtonBg: initialValues.customStyles?.goingButtonBg || '#FF7F50',
+                goingButtonBg: initialValues.customStyles?.goingButtonBg || '#10B981',
                 goingButtonText: initialValues.customStyles?.goingButtonText || '#FFFFFF',
-                maybeButtonBg: initialValues.customStyles?.maybeButtonBg || '#DAA520',
-                maybeButtonText: initialValues.customStyles?.maybeButtonText || '#FFFFFF',
-                notGoingButtonBg: initialValues.customStyles?.notGoingButtonBg || '#A9A9A9',
+                maybeButtonBg: initialValues.customStyles?.maybeButtonBg || '#A0AEC0',
+                maybeButtonText: initialValues.customStyles?.maybeButtonText || '#1A202C',
+                notGoingButtonBg: initialValues.customStyles?.notGoingButtonBg || '#E53E3E',
                 notGoingButtonText: initialValues.customStyles?.notGoingButtonText || '#FFFFFF',
 
-                rsvpButtonActiveBorderColor: initialValues.customStyles?.rsvpButtonActiveBorderColor || '#FF7F50',
-                rsvpButtonInactiveBorderColor: initialValues.customStyles?.rsvpButtonInactiveBorderColor || '#D3D3D3',
-                rsvpButtonInactiveTextColor: initialValues.customStyles?.rsvpButtonInactiveTextColor || '#363C4A',
-                rsvpButtonHoverBg: initialValues.customStyles?.rsvpButtonHoverBg || '#E06F4A',
+                rsvpButtonActiveBorderColor: initialValues.customStyles?.rsvpButtonActiveBorderColor || '#10B981',
+                rsvpButtonInactiveBorderColor: initialValues.customStyles?.rsvpButtonInactiveBorderColor || '#CBD5E0',
+                rsvpButtonInactiveTextColor: initialValues.customStyles?.rsvpButtonInactiveTextColor || '#4A5568',
+                rsvpButtonHoverBg: initialValues.customStyles?.rsvpButtonHoverBg || '#0E9F6E',
                 rsvpButtonHoverText: initialValues.customStyles?.rsvpButtonHoverText || '#FFFFFF',
             },
         };
@@ -240,7 +239,7 @@ export default function EventForm({
         const currentTags = form.getValues("tags");
         const uniqueNewTags = result.tags.filter(tag => !currentTags.includes(tag));
         const combinedTags = [...currentTags, ...uniqueNewTags].slice(0, 10);
-        replaceTags(combinedTags.map(tag => tag)); 
+        replaceTags(combinedTags); 
         toast({
           title: "Tags Suggested!",
           description: `${result.tags.length > 0 ? 'New tags added if space available.' : 'No new tags suggested or tags already exist.'}`,
@@ -363,7 +362,7 @@ export default function EventForm({
         <div
           className="rounded-lg shadow-xl overflow-hidden border border-border p-4"
           style={{
-            backgroundColor: watchedCustomStyles?.pageBackgroundColor || '#FFFAEBD7', 
+            backgroundColor: watchedCustomStyles?.pageBackgroundColor || '#F7FAFC', 
             minHeight: '600px'
           }}
         >
@@ -379,7 +378,7 @@ export default function EventForm({
               <h1
                 className="text-3xl font-bold"
                 style={{
-                  color: watchedCustomStyles?.iconAndTitleColor || '#FF7F50', 
+                  color: watchedCustomStyles?.iconAndTitleColor || '#10B981', 
                   fontFamily: watchedCustomStyles?.fontEventName || 'inherit',
                 }}
               >
@@ -398,7 +397,7 @@ export default function EventForm({
               <div className="flex items-start">
                 <CalendarDays
                   className="h-5 w-5 mr-3 flex-shrink-0"
-                  style={{ color: watchedCustomStyles?.iconAndTitleColor || '#FF7F50' }} 
+                  style={{ color: watchedCustomStyles?.iconAndTitleColor || '#10B981' }} 
                 />
                 <div>
                   <h3
@@ -408,7 +407,7 @@ export default function EventForm({
                     Date &amp; Time
                   </h3>
                   <p style={{fontFamily: watchedCustomStyles?.fontDescription || 'inherit'}}>
-                    {watchedDate ? format(watchedDate, "PPP") : "Select a date"} at {watchedTime || "12:00"}
+                    {watchedDate instanceof Date && !isNaN(watchedDate.getTime()) ? format(watchedDate, "PPP") : "Select a date"} at {watchedTime || "12:00"}
                   </p>
                 </div>
               </div>
@@ -417,7 +416,7 @@ export default function EventForm({
                   className="font-semibold mb-1 flex items-center"
                   style={{ fontFamily: watchedCustomStyles?.fontTitles || 'inherit' }}
                 >
-                  <Tag className="h-5 w-5 mr-2" style={{ color: watchedCustomStyles?.iconAndTitleColor || '#FF7F50' }}/> 
+                  <Tag className="h-5 w-5 mr-2" style={{ color: watchedCustomStyles?.iconAndTitleColor || '#10B981' }}/> 
                   About
                 </h3>
                 <p
@@ -441,9 +440,9 @@ export default function EventForm({
                         variant="default"
                         className="flex-1"
                         style={{
-                            backgroundColor: watchedCustomStyles?.goingButtonBg || '#FF7F50', 
+                            backgroundColor: watchedCustomStyles?.goingButtonBg || '#10B981', 
                             color: watchedCustomStyles?.goingButtonText || '#FFFFFF',
-                            borderColor: watchedCustomStyles?.rsvpButtonActiveBorderColor || watchedCustomStyles?.goingButtonBg || '#FF7F50',
+                            borderColor: watchedCustomStyles?.rsvpButtonActiveBorderColor || watchedCustomStyles?.goingButtonBg || '#10B981',
                             fontFamily: watchedCustomStyles?.fontTitles || 'inherit'
                         }}
                     >
@@ -454,8 +453,8 @@ export default function EventForm({
                         variant="outline"
                         className="flex-1"
                         style={{
-                            borderColor: watchedCustomStyles?.rsvpButtonInactiveBorderColor || '#D3D3D3',
-                            color: watchedCustomStyles?.rsvpButtonInactiveTextColor || '#363C4A',
+                            borderColor: watchedCustomStyles?.rsvpButtonInactiveBorderColor || '#CBD5E0',
+                            color: watchedCustomStyles?.rsvpButtonInactiveTextColor || '#4A5568',
                             fontFamily: watchedCustomStyles?.fontTitles || 'inherit'
                         }}
                     >
@@ -466,8 +465,8 @@ export default function EventForm({
                         variant="outline"
                         className="flex-1"
                          style={{
-                            borderColor: watchedCustomStyles?.rsvpButtonInactiveBorderColor || '#D3D3D3',
-                            color: watchedCustomStyles?.rsvpButtonInactiveTextColor || '#363C4A',
+                            borderColor: watchedCustomStyles?.rsvpButtonInactiveBorderColor || '#CBD5E0',
+                            color: watchedCustomStyles?.rsvpButtonInactiveTextColor || '#4A5568',
                             fontFamily: watchedCustomStyles?.fontTitles || 'inherit'
                         }}
                     >
@@ -481,3 +480,4 @@ export default function EventForm({
     </div>
   );
 }
+
