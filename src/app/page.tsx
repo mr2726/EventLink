@@ -129,7 +129,7 @@ export default function HomePage() {
 
               return (
                 <Card key={event.id} className="flex flex-col overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300">
-                  {event.images && event.images[0] && event.images[0].trim() !== '' && (
+                  {event.images && event.images.length > 0 && typeof event.images[0] === 'string' && event.images[0].trim() !== '' && (
                     <div className="relative w-full h-48">
                       <Image
                         src={event.images[0]}
@@ -226,4 +226,3 @@ export default function HomePage() {
     </div>
   );
 }
-

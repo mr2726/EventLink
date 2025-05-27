@@ -1,13 +1,14 @@
 
 "use client";
 
-import EventForm from '@/components/EventForm';
+import EventForm, { type EventFormValues } from '@/components/EventForm';
 import type { Event } from '@/lib/types';
 import { useEventStorage } from '@/hooks/useEventStorage';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { useEffect, useState } from 'react';
+import { format } from 'date-fns';
 
 export default function CreateEventPage() {
   const { addEvent } = useEventStorage();
@@ -27,7 +28,7 @@ export default function CreateEventPage() {
     }
   }, [authIsLoading, isAuthenticated, router, toast]);
 
-  const handleCreateEvent = async (eventData: Omit<Event, 'id' | 'attendees' | 'userId' | 'views' | 'rsvpCounts'>) => {
+  const handleCreateEvent = async (formData: EventFormValues) => {
     if (!user) {
       toast({
         title: "Error",
@@ -37,12 +38,25 @@ export default function CreateEventPage() {
       return;
     }
     setIsSubmitting(true);
+
+    const eventDataForStorage: Omit<Event, 'id' | 'attendees' | 'views' | 'rsvpCounts' | 'createdAt'> & { userId: string } = {
+      name: formData.name,
+      date: format(formData.date, 'yyyy-MM-dd'),
+      time: formData.time,
+      location: formData.location,
+      description: formData.description,
+      mapLink: formData.mapLink || '',
+      images: formData.images.map(img => img.url).filter(url => url && url.trim() !== ''),
+      tags: formData.tags,
+      template: 'default', // Assuming a default template or you can manage this
+      rsvpCollectFields: formData.rsvpCollectFields,
+      allowEventSharing: formData.allowEventSharing,
+      customStyles: formData.customStyles,
+      userId: user.id,
+    };
+
     try {
-      const fullEventData = {
-        ...eventData,
-        userId: user.id, 
-      };
-      const createdEvent = await addEvent(fullEventData as Omit<Event, 'id' | 'attendees' | 'views' | 'rsvpCounts'> & { userId: string });
+      const createdEvent = await addEvent(eventDataForStorage);
       toast({
         title: "Event Created!",
         description: `Your event "${createdEvent.name}" has been successfully created.`,
@@ -76,8 +90,7 @@ export default function CreateEventPage() {
 
   return (
     <div>
-      {/* Pass isSubmitting to EventForm if you want to disable its button too */}
-      <EventForm onSubmit={handleCreateEvent} />
+      <EventForm onSubmit={handleCreateEvent} isSubmitting={isSubmitting} />
     </div>
   );
 }
