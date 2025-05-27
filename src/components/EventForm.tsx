@@ -43,7 +43,6 @@ const customStylesSchema = z.object({
   fontTitles: z.string().optional(),
   fontDescription: z.string().optional(),
   
-  // New RSVP Button Colors
   goingButtonBg: z.string().optional(),
   goingButtonText: z.string().optional(),
   maybeButtonBg: z.string().optional(),
@@ -116,7 +115,7 @@ export default function EventForm({
       },
       allowEventSharing: true,
       customStyles: {
-        pageBackgroundColor: '#F7FAFC', 
+        pageBackgroundColor: '#F7FAFC',
         contentBackgroundColor: '#FFFFFF',
         textColor: '#363C4A', 
         iconAndTitleColor: '#10B981',
@@ -283,7 +282,12 @@ export default function EventForm({
                       <FormLabel>Event Date</FormLabel>
                       <Popover>
                         <PopoverTrigger asChild>
-                          <Button variant={"outline"} className={cn("w-full pl-3 text-left font-normal",!field.value && "text-muted-foreground")}> {field.value ? format(field.value, "PPP") : <span>Pick a date</span>} <CalendarIcon className="ml-auto h-4 w-4 opacity-50" /> </Button>
+                          <FormControl>
+                            <Button variant={"outline"} className={cn("w-full pl-3 text-left font-normal",!field.value && "text-muted-foreground")}>
+                              {field.value instanceof Date && !isNaN(field.value.getTime()) ? format(field.value, "PPP") : <span>Pick a date</span>}
+                              <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                            </Button>
+                          </FormControl>
                         </PopoverTrigger>
                         <PopoverContent className="w-auto p-0" align="start">
                           <Calendar mode="single" selected={field.value} onSelect={field.onChange} disabled={(date) => date < new Date(new Date().setHours(0,0,0,0)) && !initialValues } initialFocus/>
