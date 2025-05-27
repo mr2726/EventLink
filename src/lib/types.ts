@@ -9,6 +9,8 @@ export interface CustomEventStyles {
   fontEventName?: string;
   fontTitles?: string; // For section headers like Date, Time, Location
   fontDescription?: string; // For main event description text
+  buttonBackgroundColor?: string;
+  buttonTextColor?: string;
 }
 
 export interface Event {

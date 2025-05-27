@@ -42,6 +42,8 @@ const customStylesSchema = z.object({
   fontEventName: z.string().optional(),
   fontTitles: z.string().optional(),
   fontDescription: z.string().optional(),
+  buttonBackgroundColor: z.string().optional(),
+  buttonTextColor: z.string().optional(),
 }).optional();
 
 export const eventFormSchema = z.object({
@@ -101,21 +103,46 @@ export default function EventForm({
       },
       allowEventSharing: true,
       customStyles: {
-        pageBackgroundColor: '#F7FAFC', 
-        contentBackgroundColor: '#FFFFFF',
-        textColor: '#363C4A', 
-        iconAndTitleColor: '#10B981',
+        pageBackgroundColor: '#F7FAFC', // Corresponds to HSL 210 40% 98%
+        contentBackgroundColor: '#FFFFFF', // Corresponds to HSL 0 0% 100%
+        textColor: '#363C4A', // Corresponds to HSL 220 15% 25%
+        iconAndTitleColor: '#10B981', // Corresponds to HSL 195 85% 42% (Primary)
         fontEventName: 'inherit',
         fontTitles: 'inherit',
         fontDescription: 'inherit',
+        buttonBackgroundColor: '#10B981', // Corresponds to HSL 195 85% 42% (Primary)
+        buttonTextColor: '#FFFFFF', // Corresponds to HSL 0 0% 100% (Primary Foreground)
       },
-      ...initialValues, // Spread initialValues to override defaults
+      ...initialValues,
     },
   });
-
+  
   useEffect(() => {
     if (initialValues) {
-      form.reset(initialValues); // Reset form with initialValues when they change or are provided
+        const transformedInitialValues: EventFormValues = {
+            name: initialValues.name || '',
+            date: initialValues.date ? new Date(initialValues.date) : new Date(),
+            time: initialValues.time || '12:00',
+            location: initialValues.location || '',
+            description: initialValues.description || '',
+            mapLink: initialValues.mapLink || '',
+            images: initialValues.images && initialValues.images.length > 0 ? initialValues.images : [{ url: '' }],
+            tags: initialValues.tags || [],
+            rsvpCollectFields: initialValues.rsvpCollectFields || { name: true, email: false, phone: false },
+            allowEventSharing: initialValues.allowEventSharing !== undefined ? initialValues.allowEventSharing : true,
+            customStyles: {
+                pageBackgroundColor: initialValues.customStyles?.pageBackgroundColor || '#F7FAFC',
+                contentBackgroundColor: initialValues.customStyles?.contentBackgroundColor || '#FFFFFF',
+                textColor: initialValues.customStyles?.textColor || '#363C4A',
+                iconAndTitleColor: initialValues.customStyles?.iconAndTitleColor || '#10B981',
+                fontEventName: initialValues.customStyles?.fontEventName || 'inherit',
+                fontTitles: initialValues.customStyles?.fontTitles || 'inherit',
+                fontDescription: initialValues.customStyles?.fontDescription || 'inherit',
+                buttonBackgroundColor: initialValues.customStyles?.buttonBackgroundColor || '#10B981',
+                buttonTextColor: initialValues.customStyles?.buttonTextColor || '#FFFFFF',
+            },
+        };
+        form.reset(transformedInitialValues);
     }
   }, [initialValues, form.reset, form]);
 
@@ -216,11 +243,11 @@ export default function EventForm({
                   control={form.control}
                   name="date"
                   render={({ field }) => (
-                    <FormItem>
+                    <FormItem> {/* Removed flex flex-col here */}
                       <FormLabel>Event Date</FormLabel>
                       <Popover>
                         <PopoverTrigger asChild>
-                          <Button variant={"outline"} className={cn("w-full pl-3 text-left font-normal",!field.value && "text-muted-foreground")}>{field.value ? format(field.value, "PPP") : <span>Pick a date</span>}<CalendarIcon className="ml-auto h-4 w-4 opacity-50" /></Button>
+                          <Button variant={"outline"} className={cn("w-full pl-3 text-left font-normal",!field.value && "text-muted-foreground")}> {field.value ? format(field.value, "PPP") : <span>Pick a date</span>} <CalendarIcon className="ml-auto h-4 w-4 opacity-50" /> </Button>
                         </PopoverTrigger>
                         <PopoverContent className="w-auto p-0" align="start">
                           <Calendar mode="single" selected={field.value} onSelect={field.onChange} disabled={(date) => date < new Date(new Date().setHours(0,0,0,0)) && !initialValues } initialFocus/>
@@ -254,6 +281,8 @@ export default function EventForm({
                 <FormField control={form.control} name="customStyles.contentBackgroundColor" render={({ field }) => (<FormItem><FormLabel>Content Card Background</FormLabel><FormControl><input type="color" {...field} value={field.value || ''} className={cn(colorInputBaseClasses)}/></FormControl><FormMessage /></FormItem>)}/>
                 <FormField control={form.control} name="customStyles.textColor" render={({ field }) => (<FormItem><FormLabel>Main Text Color</FormLabel><FormControl><input type="color" {...field} value={field.value || ''} className={cn(colorInputBaseClasses)}/></FormControl><FormMessage /></FormItem>)}/>
                 <FormField control={form.control} name="customStyles.iconAndTitleColor" render={({ field }) => (<FormItem><FormLabel>Icon & Event Title Color</FormLabel><FormControl><input type="color" {...field} value={field.value || ''} className={cn(colorInputBaseClasses)}/></FormControl><FormMessage /></FormItem>)}/>
+                <FormField control={form.control} name="customStyles.buttonBackgroundColor" render={({ field }) => (<FormItem><FormLabel>Button Background Color</FormLabel><FormControl><input type="color" {...field} value={field.value || ''} className={cn(colorInputBaseClasses)}/></FormControl><FormMessage /></FormItem>)}/>
+                <FormField control={form.control} name="customStyles.buttonTextColor" render={({ field }) => (<FormItem><FormLabel>Button Text Color</FormLabel><FormControl><input type="color" {...field} value={field.value || ''} className={cn(colorInputBaseClasses)}/></FormControl><FormMessage /></FormItem>)}/>
               </div>
 
               <Separator />
@@ -356,8 +385,8 @@ export default function EventForm({
                 <Button
                     variant="default"
                     style={{
-                        backgroundColor: watchedCustomStyles?.iconAndTitleColor || '#10B981', 
-                        color: watchedCustomStyles?.contentBackgroundColor && watchedCustomStyles.iconAndTitleColor ? (parseInt(watchedCustomStyles.iconAndTitleColor.replace('#',''), 16) > 0x7FFFFF ? '#000000' : '#FFFFFF') : '#FFFFFF',
+                        backgroundColor: watchedCustomStyles?.buttonBackgroundColor || '#10B981', 
+                        color: watchedCustomStyles?.buttonTextColor || '#FFFFFF',
                         fontFamily: watchedCustomStyles?.fontTitles || 'inherit'
                     }}
                 >

@@ -66,6 +66,12 @@ export default function EventPage() {
         } else {
           setEvent(null);
           setIsOwner(false);
+          // Optionally show a toast if event not found from DB
+           toast({
+            title: "Event Not Found",
+            description: "The event details could not be loaded from the database. It might have been removed or the link is incorrect.",
+            variant: "destructive",
+          });
         }
         setIsLoadingEvent(false);
       } else if (!eventId) {
@@ -75,7 +81,7 @@ export default function EventPage() {
     }
 
     fetchEvent();
-  }, [eventId, getEventById, authIsLoading, isAuthenticated, user, incrementEventView, viewIncremented]);
+  }, [eventId, getEventById, authIsLoading, isAuthenticated, user, incrementEventView, viewIncremented, toast]);
 
 
   const handleRSVP = async (status: RSVPStatus) => {
@@ -145,10 +151,12 @@ export default function EventPage() {
       });
   };
 
-  const cs = event?.customStyles; // Custom Styles
-  const defaultIconColor = 'var(--primary)'; // Fallback to theme primary
-  const defaultTextColor = 'var(--foreground)'; // Fallback to theme foreground
-  const defaultCardBg = 'var(--card)'; // Fallback to theme card
+  const cs = event?.customStyles; 
+  const defaultIconColor = 'var(--primary)'; 
+  const defaultTextColor = 'var(--foreground)'; 
+  const defaultCardBg = 'var(--card)'; 
+  const defaultButtonBg = cs?.buttonBackgroundColor || 'var(--primary)';
+  const defaultButtonText = cs?.buttonTextColor || 'var(--primary-foreground)';
 
 
   if (isLoadingEvent || authIsLoading) {
@@ -175,10 +183,10 @@ export default function EventPage() {
           <CardContent>
             <p >
               The event details could not be loaded. This might be because the link is incorrect,
-              the event has been removed, or there was an issue fetching the data.
+              the event has been removed, or there was an issue fetching the data from the server.
             </p>
             <p className="text-sm mt-2">
-              Please ensure you have a working internet connection and the event ID is valid.
+               If you followed a shared link, please verify it with the event creator.
             </p>
           </CardContent>
           <CardFooter>
@@ -194,8 +202,10 @@ export default function EventPage() {
   let formattedDate = "Date not available";
   try {
     if (event.date) {
-      const dateObj = new Date(event.date + 'T00:00:00'); 
-       if (!isNaN(dateObj.getTime())) { 
+      // Ensure date string is treated as UTC to avoid off-by-one day errors
+      const [year, month, day] = event.date.split('-').map(Number);
+      const dateObj = new Date(Date.UTC(year, month - 1, day));
+      if (!isNaN(dateObj.getTime())) { 
          formattedDate = format(dateObj, "EEEE, MMMM dd, yyyy");
       }
     }
@@ -335,7 +345,7 @@ export default function EventPage() {
 
         <CardFooter 
             className="p-6 md:p-8 border-t flex-col space-y-6"
-            style={{backgroundColor: cs?.contentBackgroundColor ? `${cs.contentBackgroundColor}99` : 'var(--muted-background / 0.5)'}} // Slightly transparent version of card bg or muted
+            style={{backgroundColor: cs?.contentBackgroundColor ? `${cs.contentBackgroundColor}99` : 'var(--muted-background / 0.5)'}} 
         >
           <div className="w-full space-y-4 text-center">
             <h3 className="text-2xl font-semibold mb-4" style={{color: cs?.textColor || defaultTextColor, fontFamily: cs?.fontTitles || 'inherit'}}>Will you attend?</h3>
@@ -379,8 +389,8 @@ export default function EventPage() {
                   onClick={() => handleRSVP(status)}
                   disabled={isSubmittingRSVP}
                   style={ currentRSVPStatusForSession === status ? 
-                    { backgroundColor: cs?.iconAndTitleColor || defaultIconColor, color: cs?.contentBackgroundColor || '#FFFFFF', fontFamily: cs?.fontTitles || 'inherit' } : 
-                    { borderColor: cs?.iconAndTitleColor || defaultIconColor, color: cs?.iconAndTitleColor || defaultIconColor, fontFamily: cs?.fontTitles || 'inherit'}
+                    { backgroundColor: cs?.buttonBackgroundColor || defaultButtonBg, color: cs?.buttonTextColor || defaultButtonText, fontFamily: cs?.fontTitles || 'inherit', borderColor: cs?.buttonBackgroundColor || defaultButtonBg } : 
+                    { borderColor: cs?.buttonBackgroundColor || defaultButtonBg, color: cs?.buttonBackgroundColor || defaultButtonBg, fontFamily: cs?.fontTitles || 'inherit'}
                   }
                 >
                   {isSubmittingRSVP && currentRSVPStatusForSession === status ? 'Submitting...' : ''}
@@ -405,7 +415,12 @@ export default function EventPage() {
               </h3>
               <div className="flex items-center space-x-2">
                 <Input type="text" value={eventUrl} readOnly className="bg-background/70" aria-label="Event Link" style={{fontFamily: cs?.fontDescription || 'inherit'}}/>
-                <Button onClick={handleCopyLink} variant="outline" size="icon" aria-label="Copy event link" style={{borderColor: cs?.iconAndTitleColor || defaultIconColor, color: cs?.iconAndTitleColor || defaultIconColor}}>
+                <Button onClick={handleCopyLink} variant="outline" size="icon" aria-label="Copy event link" 
+                  style={{
+                      borderColor: cs?.buttonBackgroundColor || defaultButtonBg, 
+                      color: cs?.buttonBackgroundColor || defaultButtonBg
+                  }}
+                >
                   <Copy className="h-5 w-5" />
                 </Button>
               </div>
