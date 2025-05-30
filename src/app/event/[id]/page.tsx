@@ -312,11 +312,20 @@ export default function EventPage() {
 
   const lemonSqueezyCheckoutUrl = (() => {
     if (!event || !isOwner || event.isPremium) return '';
-    const lemonSqueezyStoreSubdomain = "eventlink-demo"; 
-    const lemonSqueezyVariantId = "827116"; 
+    
+    // Use the provided static base URL
+    const baseCheckoutUrl = "https://casperdevstore.lemonsqueezy.com/buy/aa229f01-f05c-48d1-915c-f640a8516a36?embed=1";
+    
     const baseAppUrl = typeof window !== 'undefined' ? `${window.location.protocol}//${window.location.host}` : '';
     const redirectBackUrl = `${baseAppUrl}/event/${eventId}?payment_status=success&ls_event_id=${eventId}`;
-    return `https://${lemonSqueezyStoreSubdomain}.lemonsqueezy.com/buy/${lemonSqueezyVariantId}?checkout[custom][event_id]=${eventId}&redirect_url=${encodeURIComponent(redirectBackUrl)}&checkout[embed]=1`;
+    
+    // Correctly append parameters
+    const params = new URLSearchParams();
+    params.append('checkout[custom][event_id]', eventId);
+    params.append('redirect_url', redirectBackUrl);
+    
+    // The provided baseCheckoutUrl already has ?embed=1, so we append with &
+    return `${baseCheckoutUrl}&${params.toString()}`;
   })();
 
 
@@ -568,6 +577,8 @@ export default function EventPage() {
     </div>
   );
 }
+    
+
     
 
     
