@@ -46,7 +46,7 @@ const convertEventTimestamps = (eventData: any): Event => {
   }
   // Ensure isPremium exists, default to false for older events
   data.isPremium = typeof data.isPremium === 'boolean' ? data.isPremium : false;
-  data.allowEventSharing = typeof data.allowEventSharing === 'boolean' ? data.allowEventSharing : true; // Keep existing default
+  data.allowEventSharing = typeof data.allowEventSharing === 'boolean' ? data.allowEventSharing : true;
   return data as Event;
 };
 
@@ -88,7 +88,7 @@ export function useEventStorage() {
         setIsInitialized(true);
       }
     };
-    if (typeof window !== 'undefined') { // Ensure Firestore is only called client-side
+    if (typeof window !== 'undefined') { 
         fetchUserEvents();
     }
   }, [user]);
@@ -102,7 +102,7 @@ export function useEventStorage() {
         rsvpCounts: { going: 0, maybe: 0, not_going: 0 },
         attendees: [],
         allowEventSharing: newEventData.allowEventSharing !== undefined ? newEventData.allowEventSharing : true,
-        isPremium: false, // New events are not premium by default
+        isPremium: false, 
         rsvpCollectFields: newEventData.rsvpCollectFields || { name: true, email: false, phone: false },
         customStyles: newEventData.customStyles || {},
         createdAt: serverTimestamp() as FieldValue,
@@ -124,7 +124,6 @@ export function useEventStorage() {
         }
         return createdEvent;
       } else {
-        // Fallback if getDoc fails immediately after addDoc (rare, but good to handle)
         const clientSideCreatedEvent = { ...eventToCreate, id: docRef.id, createdAt: new Date().toISOString() } as any;
         return convertEventTimestamps(clientSideCreatedEvent) as Event;
       }
@@ -177,14 +176,14 @@ export function useEventStorage() {
       const attendeeDataForFirestore: {
         id: string;
         status: RSVPStatus;
-        submittedAt: Timestamp; // Use client-generated Timestamp for arrayUnion
+        submittedAt: Timestamp;
         name?: string;
         email?: string;
         phone?: string;
       } = {
         id: crypto.randomUUID(),
         status: newStatus,
-        submittedAt: Timestamp.now(),
+        submittedAt: Timestamp.now(), // Use client-generated timestamp for arrayUnion
       };
 
       if (details.name && details.name.trim() !== "") {
@@ -233,14 +232,13 @@ export function useEventStorage() {
       const eventDocRef = doc(db, 'events', eventId);
       
       const dataToUpdate = { ...updatedEventData };
-      // Prevent direct update of sensitive/managed fields
       delete (dataToUpdate as any).id;
       delete (dataToUpdate as any).userId;
       delete (dataToUpdate as any).createdAt;
       delete (dataToUpdate as any).attendees;
       delete (dataToUpdate as any).views;
       delete (dataToUpdate as any).rsvpCounts;
-      delete (dataToUpdate as any).isPremium; // isPremium updated by separate function
+      delete (dataToUpdate as any).isPremium;
 
 
       await updateDoc(eventDocRef, dataToUpdate);
@@ -281,7 +279,7 @@ export function useEventStorage() {
         setEvents(prevEvents =>
           prevEvents.map(event => event.id === eventId ? updatedEvent : event)
         );
-        toast({ title: "Success!", description: "Event upgraded to Premium. Sharing enabled!" });
+        toast({ title: "Event Upgraded!", description: "Your event is now Premium and sharing is fully enabled!" });
         return updatedEvent;
       }
       return null;

@@ -39,7 +39,7 @@ export default function EventPage() {
   const [rsvpEmail, setRsvpEmail] = useState('');
   const [rsvpPhone, setRsvpPhone] = useState('');
   const [isSubmittingRSVP, setIsSubmittingRSVP] = useState(false);
-  const [isProcessingUpgrade, setIsProcessingUpgrade] = useState(false); // Renamed from isUpgrading for clarity
+  const [isProcessingUpgrade, setIsProcessingUpgrade] = useState(false);
 
   const [hoveredButton, setHoveredButton] = useState<RSVPStatus | null>(null);
 
@@ -103,11 +103,12 @@ export default function EventPage() {
           });
           const updatedEvent = await upgradeEventToPremium(eventId);
           if (updatedEvent) {
-            setEvent(updatedEvent); // Update local state immediately
-             // Toast for successful upgrade is handled by the hook itself
+            setEvent(updatedEvent); 
+            // Success toast for upgrade is handled by the hook
           }
         } catch (error) {
-          // Error toast is handled by the hook
+          // Error toast for upgrade is handled by the hook
+          console.error("Upgrade processing error:", error);
         } finally {
           setIsProcessingUpgrade(false);
           // Clean the URL
@@ -186,32 +187,29 @@ export default function EventPage() {
     if (!event || !isOwner || event.isPremium || isProcessingUpgrade) return;
     setIsProcessingUpgrade(true);
 
-    // In a real app, you'd call your backend to create a Lemon Squeezy checkout session
-    // For this simulation, we construct a mock URL.
-    // REPLACE 'YOUR_STORE_SUBDOMAIN' and 'YOUR_VARIANT_ID' with placeholders or actual test IDs if you have them.
-    const lemonSqueezyStoreSubdomain = "eventlink-demo"; // Example
-    const lemonSqueezyVariantId = "placeholder-variant-id"; // Example
+    // Use the provided Variant ID and assume a store subdomain
+    // IMPORTANT: User might need to change this if their store is different
+    // The API key is NOT used here; this is a direct link for client-side simulation.
+    const lemonSqueezyStoreSubdomain = "eventlink-demo"; 
+    const lemonSqueezyVariantId = "827116"; // Your Variant ID
 
     // Construct the redirect URL back to this page with success parameters
     const baseAppUrl = typeof window !== 'undefined' ? `${window.location.protocol}//${window.location.host}` : '';
     const redirectBackUrl = `${baseAppUrl}/event/${eventId}?payment_status=success&ls_event_id=${eventId}`;
 
-    const mockLemonSqueezyCheckoutUrl = `https://${lemonSqueezyStoreSubdomain}.lemonsqueezy.com/buy/${lemonSqueezyVariantId}?checkout[custom][event_id]=${eventId}&redirect_url=${encodeURIComponent(redirectBackUrl)}&checkout[transparent]=1&checkout[embed]=1`;
+    const lemonSqueezyCheckoutUrl = `https://${lemonSqueezyStoreSubdomain}.lemonsqueezy.com/buy/${lemonSqueezyVariantId}?checkout[custom][event_id]=${eventId}&redirect_url=${encodeURIComponent(redirectBackUrl)}&checkout[transparent]=1&checkout[embed]=1`;
     
     toast({
-      title: "Redirecting to Checkout (Simulated)",
-      description: "You will be redirected to a mock Lemon Squeezy page.",
+      title: "Redirecting to Checkout",
+      description: "You will be redirected to Lemon Squeezy.",
     });
 
     // Simulate a delay then redirect
     setTimeout(() => {
       if (typeof window !== 'undefined') {
-        window.location.href = mockLemonSqueezyCheckoutUrl;
+        window.location.href = lemonSqueezyCheckoutUrl;
       }
     }, 2000);
-    // In a real scenario, the user completes payment, and Lemon Squeezy redirects them to `redirectBackUrl`
-    // Or, better, Lemon Squeezy sends a webhook to your backend, which then updates the event status.
-    // The setIsProcessingUpgrade(false) will be handled by the useEffect on redirect.
   };
 
 
@@ -262,8 +260,8 @@ export default function EventPage() {
               the event has been removed, or there was an issue fetching the data from the server.
             </p>
             <p className="text-sm mt-2">
-              Since this application uses Firestore, shared links should generally work if the event ID is correct.
-              If you are the creator and the event is missing, please check your dashboard.
+              If you followed a shared link, please ensure it is correct. If you are the creator,
+              please check your dashboard.
             </p>
           </CardContent>
           <CardFooter>
@@ -545,19 +543,19 @@ export default function EventPage() {
                 disabled={isProcessingUpgrade}
                 variant="default"
                 size="lg"
-                className="bg-amber-500 hover:bg-amber-600 text-white" // Consider making these colors customizable too eventually
+                className="bg-amber-500 hover:bg-amber-600 text-white"
                 style={{fontFamily: cs?.fontTitles || 'inherit'}}
               >
                 <Star className="mr-2 h-5 w-5 fill-white" />
                 {isProcessingUpgrade ? "Processing..." : "Upgrade to Enable Sharing Link"}
               </Button>
               <p className="text-xs text-muted-foreground mt-1" style={{fontFamily: cs?.fontDescription || 'inherit'}}>
-                Unlock the 'Share this Event' link section. (This will redirect to a mock payment page)
+                Unlock the 'Share this Event' link section. (This will redirect to Lemon Squeezy)
               </p>
             </div>
           )}
 
-          {(isOwner && event.isPremium) && ( // Only show if owner AND premium
+          {(isOwner && event.isPremium) && (
             <div className="w-full space-y-3 pt-4 border-t border-border">
               <h3 className="text-xl font-semibold flex items-center justify-center" style={{color: cs?.textColor || defaultTextColor, fontFamily: cs?.fontTitles || 'inherit'}}>
                 <Link2 className="mr-2 h-5 w-5" style={{color: cs?.iconAndTitleColor || defaultIconColor}}/> Share this Event
@@ -583,21 +581,6 @@ export default function EventPage() {
               </div>
             </div>
           )}
-          {/* Fallback for guests if sharing is allowed, but owner hasn't upgraded (if such a state is possible/desired) */}
-          {/* This section is currently unreachable if !isOwner means !event.isPremium is a pre-req for owner seeing share link */}
-          {/*!isOwner && event.allowEventSharing && (
-             <div className="w-full space-y-3 pt-4 border-t border-border">
-              <h3 className="text-xl font-semibold flex items-center justify-center" style={{color: cs?.textColor || defaultTextColor, fontFamily: cs?.fontTitles || 'inherit'}}>
-                <Link2 className="mr-2 h-5 w-5" style={{color: cs?.iconAndTitleColor || defaultIconColor}}/> Share this Event
-              </h3>
-               <div className="flex items-center space-x-2">
-                <Input type="text" value={eventUrl} readOnly className="bg-background/70" aria-label="Event Link" style={{fontFamily: cs?.fontDescription || 'inherit'}}/>
-                <Button onClick={handleCopyLink} variant="outline" size="icon" aria-label="Copy event link" style={{borderColor: cs?.rsvpButtonInactiveBorderColor || D_INACTIVE_BORDER, color: cs?.rsvpButtonInactiveTextColor || D_INACTIVE_TEXT,}}>
-                  <Copy className="h-5 w-5" />
-                </Button>
-              </div>
-            </div>
-          )*/}
         </CardFooter>
       </Card>
       {!isOwner && (
@@ -610,6 +593,4 @@ export default function EventPage() {
     </div>
   );
 }
-
-
     
