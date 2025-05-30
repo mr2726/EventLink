@@ -108,6 +108,11 @@ export default function EventPage() {
           }
         } catch (error) {
           console.error("Upgrade processing error:", error);
+           toast({
+            title: "Upgrade Failed",
+            description: "There was an issue upgrading your event to Premium. Please contact support if payment was made.",
+            variant: "destructive",
+          });
         } finally {
           setIsProcessingUpgrade(false);
           router.replace(`/event/${eventId}`, undefined);
@@ -226,6 +231,7 @@ export default function EventPage() {
             <p >
               The event details could not be loaded. This might be because the link is incorrect,
               the event has been removed, or there was an issue fetching the data from the server.
+              If accessing a shared link from another device, note that events in this prototype are stored locally to the creator's browser.
             </p>
             <p className="text-sm mt-2">
               If you followed a shared link, please ensure it is correct. If you are the creator,
@@ -313,18 +319,15 @@ export default function EventPage() {
   const lemonSqueezyCheckoutUrl = (() => {
     if (!event || !isOwner || event.isPremium) return '';
     
-    // Use the provided static base URL
     const baseCheckoutUrl = "https://casperdevstore.lemonsqueezy.com/buy/aa229f01-f05c-48d1-915c-f640a8516a36?embed=1";
     
     const baseAppUrl = typeof window !== 'undefined' ? `${window.location.protocol}//${window.location.host}` : '';
     const redirectBackUrl = `${baseAppUrl}/event/${eventId}?payment_status=success&ls_event_id=${eventId}`;
     
-    // Correctly append parameters
     const params = new URLSearchParams();
-    params.append('checkout[custom][event_id]', eventId);
+    params.append('checkout[custom][event_id]', eventId); // Pass eventId as custom data
     params.append('redirect_url', redirectBackUrl);
     
-    // The provided baseCheckoutUrl already has ?embed=1, so we append with &
     return `${baseCheckoutUrl}&${params.toString()}`;
   })();
 
@@ -577,6 +580,8 @@ export default function EventPage() {
     </div>
   );
 }
+    
+
     
 
     
