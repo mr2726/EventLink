@@ -44,6 +44,9 @@ const convertEventTimestamps = (eventData: any): Event => {
   if (!data.customStyles) {
     data.customStyles = {}; 
   }
+  // Ensure isPremium exists, default to false for older events
+  data.isPremium = typeof data.isPremium === 'boolean' ? data.isPremium : false;
+  data.allowEventSharing = typeof data.allowEventSharing === 'boolean' ? data.allowEventSharing : true; // Keep existing default
   return data as Event;
 };
 
@@ -91,7 +94,7 @@ export function useEventStorage() {
   }, [user]);
 
 
-  const addEvent = useCallback(async (newEventData: Omit<Event, 'id' | 'attendees' | 'views' | 'rsvpCounts' | 'createdAt'> & { userId: string }): Promise<Event> => {
+  const addEvent = useCallback(async (newEventData: Omit<Event, 'id' | 'attendees' | 'views' | 'rsvpCounts' | 'createdAt' | 'isPremium'> & { userId: string }): Promise<Event> => {
     try {
       const eventToCreate = {
         ...newEventData,
@@ -99,6 +102,7 @@ export function useEventStorage() {
         rsvpCounts: { going: 0, maybe: 0, not_going: 0 },
         attendees: [],
         allowEventSharing: newEventData.allowEventSharing !== undefined ? newEventData.allowEventSharing : true,
+        isPremium: false, // New events are not premium by default
         rsvpCollectFields: newEventData.rsvpCollectFields || { name: true, email: false, phone: false },
         customStyles: newEventData.customStyles || {},
         createdAt: serverTimestamp() as FieldValue,
@@ -120,6 +124,7 @@ export function useEventStorage() {
         }
         return createdEvent;
       } else {
+        // Fallback if getDoc fails immediately after addDoc (rare, but good to handle)
         const clientSideCreatedEvent = { ...eventToCreate, id: docRef.id, createdAt: new Date().toISOString() } as any;
         return convertEventTimestamps(clientSideCreatedEvent) as Event;
       }
@@ -172,14 +177,14 @@ export function useEventStorage() {
       const attendeeDataForFirestore: {
         id: string;
         status: RSVPStatus;
-        submittedAt: FieldValue; 
+        submittedAt: Timestamp; // Use client-generated Timestamp for arrayUnion
         name?: string;
         email?: string;
         phone?: string;
       } = {
         id: crypto.randomUUID(),
         status: newStatus,
-        submittedAt: Timestamp.now(), 
+        submittedAt: Timestamp.now(),
       };
 
       if (details.name && details.name.trim() !== "") {
@@ -219,7 +224,7 @@ export function useEventStorage() {
 
   const updateEvent = useCallback(async (
     eventId: string, 
-    updatedEventData: Partial<Omit<Event, 'id' | 'userId' | 'createdAt' | 'attendees' | 'views' | 'rsvpCounts'>>
+    updatedEventData: Partial<Omit<Event, 'id' | 'userId' | 'createdAt' | 'attendees' | 'views' | 'rsvpCounts' | 'isPremium'>>
   ): Promise<Event | null> => {
     if (!eventId) {
       throw new Error("Event ID is required to update an event.");
@@ -227,14 +232,15 @@ export function useEventStorage() {
     try {
       const eventDocRef = doc(db, 'events', eventId);
       
-      // Ensure we don't try to update forbidden fields like userId or createdAt
       const dataToUpdate = { ...updatedEventData };
+      // Prevent direct update of sensitive/managed fields
       delete (dataToUpdate as any).id;
       delete (dataToUpdate as any).userId;
       delete (dataToUpdate as any).createdAt;
       delete (dataToUpdate as any).attendees;
       delete (dataToUpdate as any).views;
       delete (dataToUpdate as any).rsvpCounts;
+      delete (dataToUpdate as any).isPremium; // isPremium updated by separate function
 
 
       await updateDoc(eventDocRef, dataToUpdate);
@@ -259,6 +265,33 @@ export function useEventStorage() {
     }
   }, []);
 
+  const upgradeEventToPremium = useCallback(async (eventId: string): Promise<Event | null> => {
+    if (!eventId) {
+      toast({ title: "Error", description: "Event ID is missing.", variant: "destructive" });
+      return null;
+    }
+    try {
+      const eventDocRef = doc(db, 'events', eventId);
+      await updateDoc(eventDocRef, {
+        isPremium: true,
+      });
+      const updatedEventSnap = await getDoc(eventDocRef);
+      if (updatedEventSnap.exists()) {
+        const updatedEvent = convertEventTimestamps({ id: updatedEventSnap.id, ...updatedEventSnap.data() });
+        setEvents(prevEvents =>
+          prevEvents.map(event => event.id === eventId ? updatedEvent : event)
+        );
+        toast({ title: "Success!", description: "Event upgraded to Premium. Sharing enabled!" });
+        return updatedEvent;
+      }
+      return null;
+    } catch (error) {
+      console.error("Error upgrading event to premium:", error);
+      toast({ title: "Upgrade Failed", description: "Could not upgrade event. Please try again.", variant: "destructive" });
+      throw error;
+    }
+  }, [toast]);
+
 
   return {
     events,
@@ -268,7 +301,8 @@ export function useEventStorage() {
     saveRSVP,
     incrementEventView,
     deleteEvent,
-    updateEvent, // Expose updateEvent
+    updateEvent,
+    upgradeEventToPremium,
     isInitialized
   };
 }

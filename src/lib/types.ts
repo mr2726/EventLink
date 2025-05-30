@@ -10,7 +10,7 @@ export interface CustomEventStyles {
   fontTitles?: string; // For section headers like Date, Time, Location
   fontDescription?: string; // For main event description text
   
-  // RSVP Button Colors - New granular controls
+  // RSVP Button Colors - Granular controls
   goingButtonBg?: string;
   goingButtonText?: string;
   maybeButtonBg?: string;
@@ -50,7 +50,8 @@ export interface Event {
     phone: boolean;
   };
   attendees: Attendee[];
-  allowEventSharing: boolean;
+  allowEventSharing: boolean; // Remains for potential guest-facing share UI
+  isPremium: boolean; // New field for premium status
   createdAt?: Timestamp | string; // Stored as Firestore Timestamp, converted to string on read
   customStyles?: CustomEventStyles;
 }

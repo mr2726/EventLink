@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
-import { CalendarDays, Clock, MapPin, ExternalLink, Tag, CheckCircle, HelpCircle, XCircle, MessageSquare, Link2, Copy, User, AtSign, Phone } from 'lucide-react';
+import { CalendarDays, Clock, MapPin, ExternalLink, Tag, CheckCircle, HelpCircle, XCircle, MessageSquare, Link2, Copy, User, AtSign, Phone, Star } from 'lucide-react';
 import NextImage from 'next/image';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
@@ -21,7 +21,7 @@ import { useAuth } from '@/contexts/AuthContext';
 export default function EventPage() {
   const params = useParams();
   const router = useRouter();
-  const { getEventById, saveRSVP, incrementEventView } = useEventStorage();
+  const { getEventById, saveRSVP, incrementEventView, upgradeEventToPremium } = useEventStorage();
   const { user, isAuthenticated, isLoading: authIsLoading } = useAuth();
   const { toast } = useToast();
 
@@ -37,53 +37,54 @@ export default function EventPage() {
   const [rsvpEmail, setRsvpEmail] = useState('');
   const [rsvpPhone, setRsvpPhone] = useState('');
   const [isSubmittingRSVP, setIsSubmittingRSVP] = useState(false);
+  const [isUpgrading, setIsUpgrading] = useState(false);
 
   const [hoveredButton, setHoveredButton] = useState<RSVPStatus | null>(null);
 
 
   const eventId = typeof params.id === 'string' ? params.id : '';
 
+  const fetchEventDetails = useCallback(async () => {
+    if (eventId && !authIsLoading) {
+      setIsLoadingEvent(true);
+      const foundEvent = await getEventById(eventId);
+      if (foundEvent) {
+        setEvent(foundEvent);
+        if (foundEvent.images && foundEvent.images.length > 0) {
+          setSelectedImage(foundEvent.images[0]);
+        }
+        if (!viewIncremented) {
+          await incrementEventView(eventId);
+          setViewIncremented(true);
+        }
+        if (isAuthenticated && user && foundEvent.userId === user.id) {
+          setIsOwner(true);
+        } else {
+          setIsOwner(false);
+        }
+      } else {
+        setEvent(null);
+        setIsOwner(false);
+         toast({
+          title: "Event Not Found",
+          description: "The event details could not be loaded from the database. It might have been removed or the link is incorrect.",
+          variant: "destructive",
+        });
+      }
+      setIsLoadingEvent(false);
+    } else if (!eventId) {
+      setIsLoadingEvent(false);
+      setIsOwner(false);
+    }
+  }, [eventId, getEventById, authIsLoading, isAuthenticated, user, incrementEventView, viewIncremented, toast]);
+
+
   useEffect(() => {
     if (typeof window !== 'undefined') {
       setEventUrl(window.location.href);
     }
-
-    async function fetchEvent() {
-      if (eventId && !authIsLoading) {
-        setIsLoadingEvent(true);
-        const foundEvent = await getEventById(eventId);
-        if (foundEvent) {
-          setEvent(foundEvent);
-          if (foundEvent.images && foundEvent.images.length > 0) {
-            setSelectedImage(foundEvent.images[0]);
-          }
-          if (!viewIncremented) {
-            await incrementEventView(eventId);
-            setViewIncremented(true);
-          }
-          if (isAuthenticated && user && foundEvent.userId === user.id) {
-            setIsOwner(true);
-          } else {
-            setIsOwner(false);
-          }
-        } else {
-          setEvent(null);
-          setIsOwner(false);
-           toast({
-            title: "Event Not Found",
-            description: "The event details could not be loaded from the database. It might have been removed or the link is incorrect.",
-            variant: "destructive",
-          });
-        }
-        setIsLoadingEvent(false);
-      } else if (!eventId) {
-        setIsLoadingEvent(false);
-        setIsOwner(false);
-      }
-    }
-
-    fetchEvent();
-  }, [eventId, getEventById, authIsLoading, isAuthenticated, user, incrementEventView, viewIncremented, toast]);
+    fetchEventDetails();
+  }, [fetchEventDetails]);
 
 
   const handleRSVP = async (status: RSVPStatus) => {
@@ -127,10 +128,8 @@ export default function EventPage() {
         title: "RSVP Submitted!",
         description: `You responded: ${status.charAt(0).toUpperCase() + status.slice(1).replace('_', ' ')}`,
       });
-      if (isOwner) {
-        const updatedEvent = await getEventById(eventId);
-        if (updatedEvent) setEvent(updatedEvent);
-      }
+      // No need to refetch event for owner here, rsvpCounts are updated atomically
+      // If other event details dependent on RSVPs were shown, a refetch might be needed.
       setRsvpName('');
       setRsvpEmail('');
       setRsvpPhone('');
@@ -153,25 +152,41 @@ export default function EventPage() {
       });
   };
 
+  const handleUpgradeEvent = async () => {
+    if (!event || !isOwner || event.isPremium) return;
+    setIsUpgrading(true);
+    try {
+      const updatedEvent = await upgradeEventToPremium(event.id);
+      if (updatedEvent) {
+        setEvent(updatedEvent); // Update local event state to reflect premium status
+      }
+    } catch (error) {
+      // Toast is handled by the hook
+    } finally {
+      setIsUpgrading(false);
+    }
+  };
+
+
   const cs = event?.customStyles; 
   const defaultIconColor = 'var(--primary)'; 
   const defaultTextColor = 'var(--foreground)'; 
   const defaultCardBg = 'var(--card)';
   
   // Default button colors from theme
-  const D_GOING_BG = cs?.goingButtonBg || 'var(--primary)';
-  const D_GOING_TEXT = cs?.goingButtonText || 'var(--primary-foreground)';
-  const D_MAYBE_BG = cs?.maybeButtonBg || 'var(--secondary)';
-  const D_MAYBE_TEXT = cs?.maybeButtonText || 'var(--secondary-foreground)';
-  const D_NOT_GOING_BG = cs?.notGoingButtonBg || 'var(--destructive)';
-  const D_NOT_GOING_TEXT = cs?.notGoingButtonText || 'var(--destructive-foreground)';
+  const D_GOING_BG = cs?.goingButtonBg || 'hsl(var(--primary))';
+  const D_GOING_TEXT = cs?.goingButtonText || 'hsl(var(--primary-foreground))';
+  const D_MAYBE_BG = cs?.maybeButtonBg || 'hsl(var(--secondary))';
+  const D_MAYBE_TEXT = cs?.maybeButtonText || 'hsl(var(--secondary-foreground))';
+  const D_NOT_GOING_BG = cs?.notGoingButtonBg || 'hsl(var(--destructive))';
+  const D_NOT_GOING_TEXT = cs?.notGoingButtonText || 'hsl(var(--destructive-foreground))';
 
-  const D_ACTIVE_BORDER = cs?.rsvpButtonActiveBorderColor; // Use custom if available, else relies on BG
-  const D_INACTIVE_BORDER = cs?.rsvpButtonInactiveBorderColor || 'var(--border)';
-  const D_INACTIVE_TEXT = cs?.rsvpButtonInactiveTextColor || 'var(--muted-foreground)';
+  const D_ACTIVE_BORDER = cs?.rsvpButtonActiveBorderColor; 
+  const D_INACTIVE_BORDER = cs?.rsvpButtonInactiveBorderColor || 'hsl(var(--border))';
+  const D_INACTIVE_TEXT = cs?.rsvpButtonInactiveTextColor || 'hsl(var(--muted-foreground))';
   
-  const D_HOVER_BG = cs?.rsvpButtonHoverBg || 'var(--primary-hover, var(--primary))'; // Fallback to primary if no specific hover primary
-  const D_HOVER_TEXT = cs?.rsvpButtonHoverText || 'var(--primary-foreground)';
+  const D_HOVER_BG = cs?.rsvpButtonHoverBg || 'hsl(var(--primary))'; 
+  const D_HOVER_TEXT = cs?.rsvpButtonHoverText || 'hsl(var(--primary-foreground))';
 
 
   if (isLoadingEvent || authIsLoading) {
@@ -217,9 +232,11 @@ export default function EventPage() {
   let formattedDate = "Date not available";
   try {
     if (event.date) {
+      // Assuming event.date is "YYYY-MM-DD"
       const [year, month, day] = event.date.split('-').map(Number);
-      const dateObj = new Date(Date.UTC(year, month - 1, day));
-      if (!isNaN(dateObj.getTime())) { 
+      // Create date in UTC to avoid timezone issues with date-only strings
+      const dateObj = new Date(Date.UTC(year, month - 1, day)); 
+      if (!isNaN(dateObj.getTime())) { // Check if date is valid
          formattedDate = format(dateObj, "EEEE, MMMM dd, yyyy");
       }
     }
@@ -229,7 +246,7 @@ export default function EventPage() {
 
   const getButtonStyle = (status: RSVPStatus) => {
     const isSelected = currentRSVPStatusForSession === status;
-    const isHovered = hoveredButton === status;
+    const isButtonHovered = hoveredButton === status; // Renamed to avoid conflict with cs.rsvpButtonHoverBg
 
     let baseBg, baseText, baseBorderColor;
 
@@ -246,18 +263,18 @@ export default function EventPage() {
         baseBg = cs?.notGoingButtonBg || D_NOT_GOING_BG;
         baseText = cs?.notGoingButtonText || D_NOT_GOING_TEXT;
         break;
-      default: // Should not happen
-        baseBg = 'var(--primary)';
-        baseText = 'var(--primary-foreground)';
+      default: 
+        baseBg = 'hsl(var(--primary))';
+        baseText = 'hsl(var(--primary-foreground))';
     }
     
-    const activeBorder = cs?.rsvpButtonActiveBorderColor || baseBg; // Default active border to match its bg
+    const activeBorder = cs?.rsvpButtonActiveBorderColor || baseBg; 
 
-    if (isHovered) {
+    if (isButtonHovered) {
       return {
         backgroundColor: cs?.rsvpButtonHoverBg || D_HOVER_BG,
         color: cs?.rsvpButtonHoverText || D_HOVER_TEXT,
-        borderColor: cs?.rsvpButtonHoverBg || D_HOVER_BG, // Make border match hover bg
+        borderColor: cs?.rsvpButtonHoverBg || D_HOVER_BG, 
         fontFamily: cs?.fontTitles || 'inherit',
         opacity: 1,
       };
@@ -273,7 +290,6 @@ export default function EventPage() {
       };
     }
 
-    // Inactive button style (outline)
     return {
       backgroundColor: 'transparent',
       color: cs?.rsvpButtonInactiveTextColor || D_INACTIVE_TEXT,
@@ -347,7 +363,7 @@ export default function EventPage() {
           <CardDescription 
             className="text-lg mt-2"
             style={{
-              color: cs?.textColor || 'var(--muted-foreground)',
+              color: cs?.textColor || 'hsl(var(--muted-foreground))',
               fontFamily: cs?.fontDescription || 'inherit',
             }}
           >
@@ -361,14 +377,14 @@ export default function EventPage() {
               <CalendarDays className="h-8 w-8 mr-4 mt-1 flex-shrink-0" style={{color: cs?.iconAndTitleColor || defaultIconColor}}/>
               <div>
                 <h3 className="font-semibold" style={{fontFamily: cs?.fontTitles || 'inherit'}}>Date</h3>
-                <p style={{color: cs?.textColor || 'var(--muted-foreground)', fontFamily: cs?.fontDescription || 'inherit'}}>{formattedDate}</p>
+                <p style={{color: cs?.textColor || 'hsl(var(--muted-foreground))', fontFamily: cs?.fontDescription || 'inherit'}}>{formattedDate}</p>
               </div>
             </div>
             <div className="flex items-start">
               <Clock className="h-8 w-8 mr-4 mt-1 flex-shrink-0" style={{color: cs?.iconAndTitleColor || defaultIconColor}}/>
               <div>
                 <h3 className="font-semibold" style={{fontFamily: cs?.fontTitles || 'inherit'}}>Time</h3>
-                <p style={{color: cs?.textColor || 'var(--muted-foreground)', fontFamily: cs?.fontDescription || 'inherit'}}>{event.time}</p>
+                <p style={{color: cs?.textColor || 'hsl(var(--muted-foreground))', fontFamily: cs?.fontDescription || 'inherit'}}>{event.time}</p>
               </div>
             </div>
           </div>
@@ -377,14 +393,14 @@ export default function EventPage() {
             <MapPin className="h-8 w-8 mr-4 mt-1 flex-shrink-0" style={{color: cs?.iconAndTitleColor || defaultIconColor}}/>
             <div>
               <h3 className="font-semibold" style={{fontFamily: cs?.fontTitles || 'inherit'}}>Location</h3>
-              <p style={{color: cs?.textColor || 'var(--muted-foreground)', fontFamily: cs?.fontDescription || 'inherit'}}>{event.location}</p>
+              <p style={{color: cs?.textColor || 'hsl(var(--muted-foreground))', fontFamily: cs?.fontDescription || 'inherit'}}>{event.location}</p>
               {event.mapLink && (
                 <a
                   href={event.mapLink}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center text-sm hover:underline mt-1"
-                  style={{color: cs?.iconAndTitleColor || 'var(--accent)', fontFamily: cs?.fontDescription || 'inherit'}}
+                  style={{color: cs?.iconAndTitleColor || 'hsl(var(--accent))', fontFamily: cs?.fontDescription || 'inherit'}}
                 >
                   View Map <ExternalLink className="ml-1 h-3 w-3" />
                 </a>
@@ -396,7 +412,7 @@ export default function EventPage() {
             <h3 className="text-xl font-semibold flex items-center" style={{fontFamily: cs?.fontTitles || 'inherit'}}>
                 <MessageSquare className="h-6 w-6 mr-3" style={{color: cs?.iconAndTitleColor || defaultIconColor}}/> About the Event
             </h3>
-            <p className="whitespace-pre-wrap leading-relaxed" style={{color: cs?.textColor || 'var(--muted-foreground)', fontFamily: cs?.fontDescription || 'inherit'}}>{event.description}</p>
+            <p className="whitespace-pre-wrap leading-relaxed" style={{color: cs?.textColor || 'hsl(var(--muted-foreground))', fontFamily: cs?.fontDescription || 'inherit'}}>{event.description}</p>
           </div>
 
           {event.tags && event.tags.length > 0 && (
@@ -415,7 +431,7 @@ export default function EventPage() {
 
         <CardFooter 
             className="p-6 md:p-8 border-t flex-col space-y-6"
-            style={{backgroundColor: cs?.contentBackgroundColor ? `${cs.contentBackgroundColor}E6` : 'hsla(var(--muted-background-hsl), 0.9)'}} // 90% opacity
+            style={{backgroundColor: cs?.contentBackgroundColor ? `${cs.contentBackgroundColor}E6` : 'hsla(var(--muted-hsl), 0.9)'}} // 90% opacity
         >
           <div className="w-full space-y-4 text-center">
             <h3 className="text-2xl font-semibold mb-4" style={{color: cs?.textColor || defaultTextColor, fontFamily: cs?.fontTitles || 'inherit'}}>Will you attend?</h3>
@@ -471,13 +487,32 @@ export default function EventPage() {
               ))}
             </div>
             {currentRSVPStatusForSession && (
-              <p className="text-sm font-medium mt-2" style={{color: cs?.iconAndTitleColor || 'var(--accent)', fontFamily: cs?.fontDescription || 'inherit'}}>
+              <p className="text-sm font-medium mt-2" style={{color: cs?.iconAndTitleColor || 'hsl(var(--accent))', fontFamily: cs?.fontDescription || 'inherit'}}>
                 Your response: {currentRSVPStatusForSession.charAt(0).toUpperCase() + currentRSVPStatusForSession.slice(1).replace('_', ' ')}
               </p>
             )}
           </div>
           
-          {(event.allowEventSharing || isOwner) && (
+          {isOwner && !event.isPremium && (
+            <div className="w-full text-center pt-4 border-t border-border">
+              <Button
+                onClick={handleUpgradeEvent}
+                disabled={isUpgrading}
+                variant="default"
+                size="lg"
+                className="bg-amber-500 hover:bg-amber-600 text-white"
+                style={{fontFamily: cs?.fontTitles || 'inherit'}}
+              >
+                <Star className="mr-2 h-5 w-5 fill-white" />
+                {isUpgrading ? "Upgrading..." : "Upgrade to Enable Sharing Link"}
+              </Button>
+              <p className="text-xs text-muted-foreground mt-1" style={{fontFamily: cs?.fontDescription || 'inherit'}}>
+                Unlock the 'Share this Event' link section. (This is a mock payment for demo purposes)
+              </p>
+            </div>
+          )}
+
+          {((isOwner && event.isPremium) || (!isOwner && event.allowEventSharing)) && (
             <div className="w-full space-y-3 pt-4 border-t border-border">
               <h3 className="text-xl font-semibold flex items-center justify-center" style={{color: cs?.textColor || defaultTextColor, fontFamily: cs?.fontTitles || 'inherit'}}>
                 <Link2 className="mr-2 h-5 w-5" style={{color: cs?.iconAndTitleColor || defaultIconColor}}/> Share this Event
