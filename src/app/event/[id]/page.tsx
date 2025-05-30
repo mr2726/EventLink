@@ -1,10 +1,10 @@
 
 "use client";
 
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation'; // Added useSearchParams
 import { useEventStorage } from '@/hooks/useEventStorage';
 import type { Event, RSVPStatus } from '@/lib/types';
-import { useEffect, useState, useCallback } from 'react'; // Added useCallback
+import { useEffect, useState, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -21,6 +21,8 @@ import { useAuth } from '@/contexts/AuthContext';
 export default function EventPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams(); // For reading query parameters
+
   const { getEventById, saveRSVP, incrementEventView, upgradeEventToPremium } = useEventStorage();
   const { user, isAuthenticated, isLoading: authIsLoading } = useAuth();
   const { toast } = useToast();
@@ -37,7 +39,7 @@ export default function EventPage() {
   const [rsvpEmail, setRsvpEmail] = useState('');
   const [rsvpPhone, setRsvpPhone] = useState('');
   const [isSubmittingRSVP, setIsSubmittingRSVP] = useState(false);
-  const [isUpgrading, setIsUpgrading] = useState(false);
+  const [isProcessingUpgrade, setIsProcessingUpgrade] = useState(false); // Renamed from isUpgrading for clarity
 
   const [hoveredButton, setHoveredButton] = useState<RSVPStatus | null>(null);
 
@@ -50,7 +52,7 @@ export default function EventPage() {
       const foundEvent = await getEventById(eventId);
       if (foundEvent) {
         setEvent(foundEvent);
-        if (foundEvent.images && foundEvent.images.length > 0) {
+        if (foundEvent.images && foundEvent.images.length > 0 && typeof foundEvent.images[0] === 'string') {
           setSelectedImage(foundEvent.images[0]);
         }
         if (!viewIncremented) {
@@ -81,10 +83,40 @@ export default function EventPage() {
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      setEventUrl(window.location.href);
+      setEventUrl(window.location.href.split('?')[0]); // Get URL without query params for display
     }
     fetchEventDetails();
   }, [fetchEventDetails]);
+
+  // Effect to handle mocked payment success
+  useEffect(() => {
+    const paymentStatus = searchParams.get('payment_status');
+    const lsEventId = searchParams.get('ls_event_id');
+
+    if (paymentStatus === 'success' && lsEventId === eventId && event && !event.isPremium && !isProcessingUpgrade) {
+      setIsProcessingUpgrade(true);
+      const processUpgrade = async () => {
+        try {
+          toast({
+            title: "Payment Successful (Simulated)",
+            description: "Your event is being upgraded to Premium...",
+          });
+          const updatedEvent = await upgradeEventToPremium(eventId);
+          if (updatedEvent) {
+            setEvent(updatedEvent); // Update local state immediately
+             // Toast for successful upgrade is handled by the hook itself
+          }
+        } catch (error) {
+          // Error toast is handled by the hook
+        } finally {
+          setIsProcessingUpgrade(false);
+          // Clean the URL
+          router.replace(`/event/${eventId}`, undefined);
+        }
+      };
+      processUpgrade();
+    }
+  }, [searchParams, eventId, router, upgradeEventToPremium, toast, event, isProcessingUpgrade]);
 
 
   const handleRSVP = async (status: RSVPStatus) => {
@@ -128,8 +160,6 @@ export default function EventPage() {
         title: "RSVP Submitted!",
         description: `You responded: ${status.charAt(0).toUpperCase() + status.slice(1).replace('_', ' ')}`,
       });
-      // No need to refetch event for owner here, rsvpCounts are updated atomically
-      // If other event details dependent on RSVPs were shown, a refetch might be needed.
       setRsvpName('');
       setRsvpEmail('');
       setRsvpPhone('');
@@ -152,19 +182,36 @@ export default function EventPage() {
       });
   };
 
-  const handleUpgradeEvent = async () => {
-    if (!event || !isOwner || event.isPremium) return;
-    setIsUpgrading(true);
-    try {
-      const updatedEvent = await upgradeEventToPremium(event.id);
-      if (updatedEvent) {
-        setEvent(updatedEvent); // Update local event state to reflect premium status
+  const handleUpgradeEventWithMockPayment = async () => {
+    if (!event || !isOwner || event.isPremium || isProcessingUpgrade) return;
+    setIsProcessingUpgrade(true);
+
+    // In a real app, you'd call your backend to create a Lemon Squeezy checkout session
+    // For this simulation, we construct a mock URL.
+    // REPLACE 'YOUR_STORE_SUBDOMAIN' and 'YOUR_VARIANT_ID' with placeholders or actual test IDs if you have them.
+    const lemonSqueezyStoreSubdomain = "eventlink-demo"; // Example
+    const lemonSqueezyVariantId = "placeholder-variant-id"; // Example
+
+    // Construct the redirect URL back to this page with success parameters
+    const baseAppUrl = typeof window !== 'undefined' ? `${window.location.protocol}//${window.location.host}` : '';
+    const redirectBackUrl = `${baseAppUrl}/event/${eventId}?payment_status=success&ls_event_id=${eventId}`;
+
+    const mockLemonSqueezyCheckoutUrl = `https://${lemonSqueezyStoreSubdomain}.lemonsqueezy.com/buy/${lemonSqueezyVariantId}?checkout[custom][event_id]=${eventId}&redirect_url=${encodeURIComponent(redirectBackUrl)}&checkout[transparent]=1&checkout[embed]=1`;
+    
+    toast({
+      title: "Redirecting to Checkout (Simulated)",
+      description: "You will be redirected to a mock Lemon Squeezy page.",
+    });
+
+    // Simulate a delay then redirect
+    setTimeout(() => {
+      if (typeof window !== 'undefined') {
+        window.location.href = mockLemonSqueezyCheckoutUrl;
       }
-    } catch (error) {
-      // Toast is handled by the hook
-    } finally {
-      setIsUpgrading(false);
-    }
+    }, 2000);
+    // In a real scenario, the user completes payment, and Lemon Squeezy redirects them to `redirectBackUrl`
+    // Or, better, Lemon Squeezy sends a webhook to your backend, which then updates the event status.
+    // The setIsProcessingUpgrade(false) will be handled by the useEffect on redirect.
   };
 
 
@@ -173,7 +220,6 @@ export default function EventPage() {
   const defaultTextColor = 'var(--foreground)'; 
   const defaultCardBg = 'var(--card)';
   
-  // Default button colors from theme
   const D_GOING_BG = cs?.goingButtonBg || 'hsl(var(--primary))';
   const D_GOING_TEXT = cs?.goingButtonText || 'hsl(var(--primary-foreground))';
   const D_MAYBE_BG = cs?.maybeButtonBg || 'hsl(var(--secondary))';
@@ -216,7 +262,8 @@ export default function EventPage() {
               the event has been removed, or there was an issue fetching the data from the server.
             </p>
             <p className="text-sm mt-2">
-               If you followed a shared link, please verify it with the event creator.
+              Since this application uses Firestore, shared links should generally work if the event ID is correct.
+              If you are the creator and the event is missing, please check your dashboard.
             </p>
           </CardContent>
           <CardFooter>
@@ -232,11 +279,9 @@ export default function EventPage() {
   let formattedDate = "Date not available";
   try {
     if (event.date) {
-      // Assuming event.date is "YYYY-MM-DD"
       const [year, month, day] = event.date.split('-').map(Number);
-      // Create date in UTC to avoid timezone issues with date-only strings
       const dateObj = new Date(Date.UTC(year, month - 1, day)); 
-      if (!isNaN(dateObj.getTime())) { // Check if date is valid
+      if (!isNaN(dateObj.getTime())) {
          formattedDate = format(dateObj, "EEEE, MMMM dd, yyyy");
       }
     }
@@ -246,9 +291,9 @@ export default function EventPage() {
 
   const getButtonStyle = (status: RSVPStatus) => {
     const isSelected = currentRSVPStatusForSession === status;
-    const isButtonHovered = hoveredButton === status; // Renamed to avoid conflict with cs.rsvpButtonHoverBg
+    const isButtonHovered = hoveredButton === status;
 
-    let baseBg, baseText, baseBorderColor;
+    let baseBg, baseText;
 
     switch(status) {
       case 'going':
@@ -431,7 +476,7 @@ export default function EventPage() {
 
         <CardFooter 
             className="p-6 md:p-8 border-t flex-col space-y-6"
-            style={{backgroundColor: cs?.contentBackgroundColor ? `${cs.contentBackgroundColor}E6` : 'hsla(var(--muted-hsl), 0.9)'}} // 90% opacity
+            style={{backgroundColor: cs?.contentBackgroundColor ? `${cs.contentBackgroundColor}E6` : 'hsla(var(--muted-hsl), 0.9)'}}
         >
           <div className="w-full space-y-4 text-center">
             <h3 className="text-2xl font-semibold mb-4" style={{color: cs?.textColor || defaultTextColor, fontFamily: cs?.fontTitles || 'inherit'}}>Will you attend?</h3>
@@ -473,7 +518,7 @@ export default function EventPage() {
                   size="lg"
                   className="flex-1 transition-all duration-150 ease-in-out"
                   onClick={() => handleRSVP(status)}
-                  disabled={isSubmittingRSVP}
+                  disabled={isSubmittingRSVP || isProcessingUpgrade}
                   style={getButtonStyle(status)}
                   onMouseEnter={() => setHoveredButton(status)}
                   onMouseLeave={() => setHoveredButton(null)}
@@ -496,23 +541,23 @@ export default function EventPage() {
           {isOwner && !event.isPremium && (
             <div className="w-full text-center pt-4 border-t border-border">
               <Button
-                onClick={handleUpgradeEvent}
-                disabled={isUpgrading}
+                onClick={handleUpgradeEventWithMockPayment}
+                disabled={isProcessingUpgrade}
                 variant="default"
                 size="lg"
-                className="bg-amber-500 hover:bg-amber-600 text-white"
+                className="bg-amber-500 hover:bg-amber-600 text-white" // Consider making these colors customizable too eventually
                 style={{fontFamily: cs?.fontTitles || 'inherit'}}
               >
                 <Star className="mr-2 h-5 w-5 fill-white" />
-                {isUpgrading ? "Upgrading..." : "Upgrade to Enable Sharing Link"}
+                {isProcessingUpgrade ? "Processing..." : "Upgrade to Enable Sharing Link"}
               </Button>
               <p className="text-xs text-muted-foreground mt-1" style={{fontFamily: cs?.fontDescription || 'inherit'}}>
-                Unlock the 'Share this Event' link section. (This is a mock payment for demo purposes)
+                Unlock the 'Share this Event' link section. (This will redirect to a mock payment page)
               </p>
             </div>
           )}
 
-          {((isOwner && event.isPremium) || (!isOwner && event.allowEventSharing)) && (
+          {(isOwner && event.isPremium) && ( // Only show if owner AND premium
             <div className="w-full space-y-3 pt-4 border-t border-border">
               <h3 className="text-xl font-semibold flex items-center justify-center" style={{color: cs?.textColor || defaultTextColor, fontFamily: cs?.fontTitles || 'inherit'}}>
                 <Link2 className="mr-2 h-5 w-5" style={{color: cs?.iconAndTitleColor || defaultIconColor}}/> Share this Event
@@ -538,6 +583,21 @@ export default function EventPage() {
               </div>
             </div>
           )}
+          {/* Fallback for guests if sharing is allowed, but owner hasn't upgraded (if such a state is possible/desired) */}
+          {/* This section is currently unreachable if !isOwner means !event.isPremium is a pre-req for owner seeing share link */}
+          {/*!isOwner && event.allowEventSharing && (
+             <div className="w-full space-y-3 pt-4 border-t border-border">
+              <h3 className="text-xl font-semibold flex items-center justify-center" style={{color: cs?.textColor || defaultTextColor, fontFamily: cs?.fontTitles || 'inherit'}}>
+                <Link2 className="mr-2 h-5 w-5" style={{color: cs?.iconAndTitleColor || defaultIconColor}}/> Share this Event
+              </h3>
+               <div className="flex items-center space-x-2">
+                <Input type="text" value={eventUrl} readOnly className="bg-background/70" aria-label="Event Link" style={{fontFamily: cs?.fontDescription || 'inherit'}}/>
+                <Button onClick={handleCopyLink} variant="outline" size="icon" aria-label="Copy event link" style={{borderColor: cs?.rsvpButtonInactiveBorderColor || D_INACTIVE_BORDER, color: cs?.rsvpButtonInactiveTextColor || D_INACTIVE_TEXT,}}>
+                  <Copy className="h-5 w-5" />
+                </Button>
+              </div>
+            </div>
+          )*/}
         </CardFooter>
       </Card>
       {!isOwner && (
@@ -551,3 +611,5 @@ export default function EventPage() {
   );
 }
 
+
+    
