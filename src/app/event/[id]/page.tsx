@@ -17,7 +17,7 @@ import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/contexts/AuthContext';
-import BuyEventLinkButton from '@/components/BuyEventLinkButton'; // Import the new component
+import BuyEventLinkButton from '@/components/BuyEventLinkButton';
 
 export default function EventPage() {
   const params = useParams();
@@ -115,7 +115,7 @@ export default function EventPage() {
       };
       processUpgrade();
     }
-  }, [searchParams, eventId, router, upgradeEventToPremium, toast, event, isProcessingUpgrade]);
+  }, [searchParams, eventId, router, upgradeEventToPremium, toast, event, isProcessingUpgrade, setEvent]);
 
 
   const handleRSVP = async (status: RSVPStatus) => {
@@ -311,7 +311,7 @@ export default function EventPage() {
   };
 
   const lemonSqueezyCheckoutUrl = (() => {
-    if (!event || !isOwner || event.isPremium) return ''; // Only construct if needed
+    if (!event || !isOwner || event.isPremium) return '';
     const lemonSqueezyStoreSubdomain = "eventlink-demo"; 
     const lemonSqueezyVariantId = "827116"; 
     const baseAppUrl = typeof window !== 'undefined' ? `${window.location.protocol}//${window.location.host}` : '';
@@ -346,26 +346,28 @@ export default function EventPage() {
         {event.images && event.images.length > 1 && (
           <div className="p-4 bg-black/5 flex gap-2 overflow-x-auto">
             {event.images.map((imgUrl, idx) => (
-              <button 
-                key={idx} 
-                onClick={() => setSelectedImage(imgUrl)} 
-                className={cn(
-                  "h-16 w-16 rounded-md overflow-hidden border-2 focus:outline-none focus:ring-2",
-                  selectedImage === imgUrl ? "ring-offset-2" : "border-transparent hover:border-primary/50 ring-transparent"
-                )}
-                style={{borderColor: selectedImage === imgUrl ? (cs?.iconAndTitleColor || defaultIconColor) : 'transparent',
-                        ringColor: selectedImage === imgUrl ? (cs?.iconAndTitleColor || defaultIconColor) : 'transparent'
-                       }}
-              >
-                <NextImage 
-                    src={imgUrl} 
-                    alt={`${event.name} thumbnail ${idx+1}`} 
-                    width={64} 
-                    height={64} 
-                    style={{ objectFit: "cover" }}
-                    data-ai-hint="event photo" 
-                />
-              </button>
+              typeof imgUrl === 'string' && imgUrl.trim() !== '' && (
+                <button 
+                  key={idx} 
+                  onClick={() => setSelectedImage(imgUrl)} 
+                  className={cn(
+                    "h-16 w-16 rounded-md overflow-hidden border-2 focus:outline-none focus:ring-2",
+                    selectedImage === imgUrl ? "ring-offset-2" : "border-transparent hover:border-primary/50 ring-transparent"
+                  )}
+                  style={{borderColor: selectedImage === imgUrl ? (cs?.iconAndTitleColor || defaultIconColor) : 'transparent',
+                          ringColor: selectedImage === imgUrl ? (cs?.iconAndTitleColor || defaultIconColor) : 'transparent'
+                         }}
+                >
+                  <NextImage 
+                      src={imgUrl} 
+                      alt={`${event.name} thumbnail ${idx+1}`} 
+                      width={64} 
+                      height={64} 
+                      style={{ objectFit: "cover" }}
+                      data-ai-hint="event photo" 
+                  />
+                </button>
+              )
             ))}
           </div>
         )}
@@ -566,4 +568,6 @@ export default function EventPage() {
     </div>
   );
 }
+    
+
     
