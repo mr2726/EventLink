@@ -11,14 +11,17 @@ import { doc, updateDoc, getDoc } from 'firebase/firestore';
 const LEMONSQUEEZY_WEBHOOK_SECRET = process.env.LEMONSQUEEZY_WEBHOOK_SECRET;
 
 export async function POST(request: NextRequest) {
+  console.log('Webhook: Received request');
+
   if (!LEMONSQUEEZY_WEBHOOK_SECRET) {
-    console.error('Lemon Squeezy Webhook Secret is not configured.');
+    console.error('Webhook Error: Lemon Squeezy Webhook Secret is not configured.');
     return NextResponse.json({ error: 'Webhook secret not configured.' }, { status: 500 });
   }
 
   try {
     const rawBody = await request.text(); // Get raw body for signature verification
     const signature = request.headers.get('X-Signature');
+    console.log('Webhook: Signature received:', signature ? 'Present' : 'Missing');
 
     // TODO: Implement actual signature verification
     // This is a critical security step. Without it, anyone could call your endpoint.
@@ -27,28 +30,28 @@ export async function POST(request: NextRequest) {
     // const digest = Buffer.from(hmac.update(rawBody).digest('hex'), 'utf8');
     // const receivedSignature = Buffer.from(signature || '', 'utf8');
     // if (!crypto.timingSafeEqual(digest, receivedSignature)) {
-    //   console.warn('Invalid webhook signature.');
+    //   console.warn('Webhook Warning: Invalid signature.');
     //   return NextResponse.json({ error: 'Invalid signature.' }, { status: 401 });
     // }
     // For this prototype, we'll bypass signature verification.
     // In production, DO NOT bypass this.
-    if (!signature) { // Basic check for presence in prototype
-        console.warn('Missing X-Signature header. Bypassing verification for prototype.');
+    if (!signature) { 
+        console.warn('Webhook Warning: Missing X-Signature header. Bypassing verification for prototype.');
     }
 
 
-    const payload = JSON.parse(rawBody); // Parse after (potential) verification
-
-    // Log the payload for debugging purposes (remove in production)
-    // console.log('Received Lemon Squeezy Webhook Payload:', JSON.stringify(payload, null, 2));
+    const payload = JSON.parse(rawBody); 
+    console.log('Webhook: Parsed payload:', JSON.stringify(payload, null, 2));
 
     const eventName = payload.meta?.event_name;
     const customData = payload.meta?.custom_data;
     const eventId = customData?.event_id;
 
+    console.log(`Webhook: Event name: ${eventName}, Custom event_id: ${eventId}`);
+
     if (eventName === 'order_created') {
       if (!eventId) {
-        console.warn('Webhook: order_created event received, but no event_id found in custom_data.');
+        console.warn('Webhook Warning: order_created event received, but no event_id found in custom_data.');
         return NextResponse.json({ error: 'Missing event_id in custom_data.' }, { status: 400 });
       }
 
@@ -59,7 +62,7 @@ export async function POST(request: NextRequest) {
         const eventSnap = await getDoc(eventDocRef);
 
         if (!eventSnap.exists()) {
-          console.warn(`Webhook: Event with ID ${eventId} not found in Firestore.`);
+          console.warn(`Webhook Warning: Event with ID ${eventId} not found in Firestore.`);
           return NextResponse.json({ error: `Event ${eventId} not found.` }, { status: 404 });
         }
         
@@ -72,21 +75,20 @@ export async function POST(request: NextRequest) {
           isPremium: true,
         });
 
-        console.log(`Webhook: Successfully upgraded event ${eventId} to premium.`);
+        console.log(`Webhook: Successfully upgraded event ${eventId} to premium in Firestore.`);
         return NextResponse.json({ message: 'Webhook processed successfully, event upgraded.' }, { status: 200 });
       
       } catch (dbError) {
-        console.error(`Webhook: Firestore error updating event ${eventId}:`, dbError);
+        console.error(`Webhook Error: Firestore error updating event ${eventId}:`, dbError);
         return NextResponse.json({ error: 'Failed to update event in database.' }, { status: 500 });
       }
     } else {
-      // You can handle other event types if needed
-      // console.log(`Webhook: Received unhandled event_name: ${eventName}`);
+      console.log(`Webhook: Received unhandled event_name: ${eventName}. Not processing.`);
       return NextResponse.json({ message: `Event ${eventName} received but not processed.` }, { status: 200 });
     }
 
   } catch (error: any) {
-    console.error('Webhook processing error:', error);
+    console.error('Webhook Error: Processing error:', error.message, error.stack);
     return NextResponse.json({ error: 'Webhook processing failed.', details: error.message }, { status: 400 });
   }
 }

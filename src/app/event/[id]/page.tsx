@@ -48,22 +48,28 @@ export default function EventPage() {
   const eventId = typeof params.id === 'string' ? params.id : '';
 
   const fetchEventDetails = useCallback(async () => {
+    console.log("EventPage: fetchEventDetails called. Event ID:", eventId, "AuthLoading:", authIsLoading);
     if (eventId && !authIsLoading) {
       setIsLoadingEvent(true);
+      console.log("EventPage: Fetching event details for ID:", eventId);
       const foundEvent = await getEventById(eventId);
+      console.log("EventPage: Fetched event:", foundEvent);
       if (foundEvent) {
         setEvent(foundEvent);
         if (foundEvent.images && foundEvent.images.length > 0 && typeof foundEvent.images[0] === 'string') {
           setSelectedImage(foundEvent.images[0]);
         }
         if (!viewIncremented) {
+          console.log("EventPage: Incrementing view for event ID:", eventId);
           await incrementEventView(eventId);
           setViewIncremented(true);
         }
         if (isAuthenticated && user && foundEvent.userId === user.id) {
           setIsOwner(true);
+           console.log("EventPage: User is owner of the event.");
         } else {
           setIsOwner(false);
+          console.log("EventPage: User is NOT owner of the event.");
         }
       } else {
         setEvent(null);
@@ -75,7 +81,8 @@ export default function EventPage() {
         });
       }
       setIsLoadingEvent(false);
-    } else if (!eventId) {
+    } else if (!eventId && !authIsLoading) {
+      console.log("EventPage: Event ID is missing, not fetching.");
       setIsLoadingEvent(false);
       setIsOwner(false);
     }
@@ -94,20 +101,31 @@ export default function EventPage() {
     const paymentStatus = searchParams.get('payment_status');
     const lsEventId = searchParams.get('ls_event_id');
 
+    console.log("EventPage: Payment success check. Status:", paymentStatus, "LS Event ID:", lsEventId, "Current Event ID:", eventId);
+    console.log("EventPage: Current event state:", event);
+    console.log("EventPage: isProcessingUpgrade:", isProcessingUpgrade);
+
+
     if (paymentStatus === 'success' && lsEventId === eventId && event && !event.isPremium && !isProcessingUpgrade) {
+      console.log("EventPage: Detected successful payment redirect for event ID:", eventId);
       setIsProcessingUpgrade(true);
       const processUpgrade = async () => {
+        console.log("EventPage: processUpgrade started.");
         try {
           toast({
             title: "Payment Successful (Simulated)",
             description: "Your event is being upgraded to Premium...",
           });
           const updatedEvent = await upgradeEventToPremium(eventId);
+          console.log("EventPage: upgradeEventToPremium returned:", updatedEvent);
           if (updatedEvent) {
             setEvent(updatedEvent); 
+            console.log("EventPage: Local event state updated to premium.");
+          } else {
+            console.warn("EventPage: upgradeEventToPremium returned null or undefined.");
           }
         } catch (error) {
-          console.error("Upgrade processing error:", error);
+          console.error("EventPage: Error processing upgrade:", error);
            toast({
             title: "Upgrade Failed",
             description: "There was an issue upgrading your event to Premium. Please contact support if payment was made.",
@@ -115,10 +133,15 @@ export default function EventPage() {
           });
         } finally {
           setIsProcessingUpgrade(false);
+          console.log("EventPage: processUpgrade finished. Cleaning URL parameters.");
           router.replace(`/event/${eventId}`, undefined);
         }
       };
       processUpgrade();
+    } else {
+      if (paymentStatus === 'success' && lsEventId === eventId) {
+        console.log("EventPage: Payment success detected, but conditions not fully met. Event Premium:", event?.isPremium, "Processing:", isProcessingUpgrade);
+      }
     }
   }, [searchParams, eventId, router, upgradeEventToPremium, toast, event, isProcessingUpgrade, setEvent]);
 
@@ -138,7 +161,7 @@ export default function EventPage() {
       }
     }
     if (event.rsvpCollectFields.email) {
-      if (!rsvpEmail.trim() || !/^\S+@\S+\.\S+$/.test(rsvpEmail.trim())) {
+      if (!/^\S+@\S+\.\S+$/.test(rsvpEmail.trim())) { // Also check if empty
         toast({ title: "Valid Email Required", description: "Please enter a valid email address to RSVP.", variant: "destructive" });
         canSubmit = false;
       } else {
@@ -231,11 +254,10 @@ export default function EventPage() {
             <p >
               The event details could not be loaded. This might be because the link is incorrect,
               the event has been removed, or there was an issue fetching the data from the server.
-              If accessing a shared link from another device, note that events in this prototype are stored locally to the creator's browser.
             </p>
             <p className="text-sm mt-2">
               If you followed a shared link, please ensure it is correct. If you are the creator,
-              please check your dashboard.
+              please check your dashboard or ensure your Firebase setup is correct.
             </p>
           </CardContent>
           <CardFooter>
@@ -251,10 +273,12 @@ export default function EventPage() {
   let formattedDate = "Date not available";
   try {
     if (event.date) {
-      const [year, month, day] = event.date.split('-').map(Number);
-      const dateObj = new Date(Date.UTC(year, month - 1, day)); 
+      // Assuming event.date is YYYY-MM-DD string
+      const dateObj = new Date(event.date + 'T00:00:00'); // Add time to avoid timezone issues with date-only strings
       if (!isNaN(dateObj.getTime())) {
          formattedDate = format(dateObj, "EEEE, MMMM dd, yyyy");
+      } else {
+        console.warn("EventPage: Invalid date object created from event.date:", event.date);
       }
     }
   } catch (e) {
@@ -319,6 +343,7 @@ export default function EventPage() {
   const lemonSqueezyCheckoutUrl = (() => {
     if (!event || !isOwner || event.isPremium) return '';
     
+    // Use the specific checkout URL provided
     const baseCheckoutUrl = "https://casperdevstore.lemonsqueezy.com/buy/aa229f01-f05c-48d1-915c-f640a8516a36?embed=1";
     
     const baseAppUrl = typeof window !== 'undefined' ? `${window.location.protocol}//${window.location.host}` : '';
@@ -328,7 +353,10 @@ export default function EventPage() {
     params.append('checkout[custom][event_id]', eventId); // Pass eventId as custom data
     params.append('redirect_url', redirectBackUrl);
     
-    return `${baseCheckoutUrl}&${params.toString()}`;
+    // Append our params to the base checkout URL.
+    // If baseCheckoutUrl already has query params (like ?embed=1), we need to use '&', otherwise '?'
+    const separator = baseCheckoutUrl.includes('?') ? '&' : '?';
+    return `${baseCheckoutUrl}${separator}${params.toString()}`;
   })();
 
 
