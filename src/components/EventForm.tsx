@@ -12,7 +12,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { CalendarIcon, Sparkles, PlusCircle, MinusCircle, Tag, User, AtSign, Phone, Palette, Type, Eye, CalendarDays, CheckCircle, HelpCircle, XCircle } from 'lucide-react'; // Removed Share2
+import { CalendarIcon, Sparkles, PlusCircle, MinusCircle, Tag, User, AtSign, Phone, Palette, Type, Eye, CheckCircle, HelpCircle, XCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { suggestEventTags } from '@/ai/flows/suggest-event-tags';
@@ -72,7 +72,6 @@ export const eventFormSchema = z.object({
     email: z.boolean().default(false),
     phone: z.boolean().default(false),
   }),
-  // allowEventSharing: z.boolean().default(true), // Removed as requested
   customStyles: customStylesSchema,
 });
 
@@ -113,31 +112,30 @@ export default function EventForm({
         email: false,
         phone: false,
       },
-      // allowEventSharing: true, // Removed as requested
       customStyles: {
-        pageBackgroundColor: '#F7FAFC',       // Corresponds to hsl(210 40% 98%)
-        contentBackgroundColor: '#FFFFFF',     // Corresponds to hsl(0 0% 100%)
-        textColor: '#363C4A',                 // Corresponds to hsl(220 15% 25%)
-        iconAndTitleColor: '#10B981',         // Corresponds to hsl(195 85% 42%) for Primary
+        pageBackgroundColor: '#F7FAFC',        // Corresponds to hsl(210 40% 98%) -> --background
+        contentBackgroundColor: '#FFFFFF',      // Corresponds to hsl(0 0% 100%) -> --card
+        textColor: '#363C4A',                  // Corresponds to hsl(220 15% 25%) -> --foreground
+        iconAndTitleColor: '#10B981',          // Corresponds to hsl(195 85% 42%) -> --primary
         fontEventName: 'inherit',
         fontTitles: 'inherit',
         fontDescription: 'inherit',
         
-        goingButtonBg: '#10B981',             // Primary
-        goingButtonText: '#FFFFFF',           // Primary Foreground
-        maybeButtonBg: '#E2E8F0',             // Secondary (hsl(210 30% 90%)) approx
-        maybeButtonText: '#1A365D',           // Secondary Foreground (hsl(195 80% 25%)) approx
-        notGoingButtonBg: '#E53E3E',          // Destructive (hsl(0 75% 55%)) approx
-        notGoingButtonText: '#FFFFFF',        // Destructive Foreground
+        goingButtonBg: '#10B981',              // --primary
+        goingButtonText: '#FFFFFF',            // --primary-foreground
+        maybeButtonBg: '#E2E8F0',              // --secondary approx (hsl(210 30% 90%))
+        maybeButtonText: '#1A365D',            // --secondary-foreground approx (hsl(195 80% 25%))
+        notGoingButtonBg: '#EF4444',           // --destructive approx (hsl(0 84% 60%))
+        notGoingButtonText: '#FFFFFF',         // --destructive-foreground
         
-        rsvpButtonActiveBorderColor: '#10B981', // Primary
-        rsvpButtonInactiveBorderColor: '#CBD5E0',// Border (hsl(210 20% 88%)) approx
-        rsvpButtonInactiveTextColor: '#718096',  // Muted Foreground (hsl(210 20% 55%)) approx
+        rsvpButtonActiveBorderColor: '#10B981', // --primary
+        rsvpButtonInactiveBorderColor: '#CBD5E0',// --border approx (hsl(210 20% 88%))
+        rsvpButtonInactiveTextColor: '#718096',   // --muted-foreground approx (hsl(210 20% 55%))
 
-        rsvpButtonHoverBg: '#0D9488',         // Darker Primary (Teal 600)
-        rsvpButtonHoverText: '#FFFFFF',       // Primary Foreground
+        rsvpButtonHoverBg: '#0D9488',          // Darker primary (e.g., teal-600)
+        rsvpButtonHoverText: '#FFFFFF',        // Primary foreground
       },
-      ...initialValues,
+      ...initialValues, // This will override defaults if initialValues is provided
     },
   });
   
@@ -153,7 +151,6 @@ export default function EventForm({
             images: initialValues.images && initialValues.images.length > 0 ? initialValues.images : [{ url: '' }],
             tags: initialValues.tags || [],
             rsvpCollectFields: initialValues.rsvpCollectFields || { name: true, email: false, phone: false },
-            // allowEventSharing: initialValues.allowEventSharing !== undefined ? initialValues.allowEventSharing : true, // Removed
             customStyles: {
                 pageBackgroundColor: initialValues.customStyles?.pageBackgroundColor || '#F7FAFC',
                 contentBackgroundColor: initialValues.customStyles?.contentBackgroundColor || '#FFFFFF',
@@ -167,7 +164,7 @@ export default function EventForm({
                 goingButtonText: initialValues.customStyles?.goingButtonText || '#FFFFFF',
                 maybeButtonBg: initialValues.customStyles?.maybeButtonBg || '#E2E8F0',
                 maybeButtonText: initialValues.customStyles?.maybeButtonText || '#1A365D',
-                notGoingButtonBg: initialValues.customStyles?.notGoingButtonBg || '#E53E3E',
+                notGoingButtonBg: initialValues.customStyles?.notGoingButtonBg || '#EF4444',
                 notGoingButtonText: initialValues.customStyles?.notGoingButtonText || '#FFFFFF',
 
                 rsvpButtonActiveBorderColor: initialValues.customStyles?.rsvpButtonActiveBorderColor || '#10B981',
@@ -235,10 +232,10 @@ export default function EventForm({
         eventLocation,
       });
       if (result.tags) {
-        const currentTags = form.getValues("tags");
-        const uniqueNewTags = result.tags.filter(tag => !currentTags.includes(tag));
-        const combinedTags = [...currentTags, ...uniqueNewTags].slice(0, 10);
-        replaceTags(combinedTags.map(tag => ({ value: tag }))); 
+        const currentTags = form.getValues("tags"); // string[]
+        const uniqueNewTags = result.tags.filter(tag => !currentTags.includes(tag)); // string[]
+        const combinedTags = [...currentTags, ...uniqueNewTags].slice(0, 10); // string[]
+        replaceTags(combinedTags); // Pass string[] directly
         toast({
           title: "Tags Suggested!",
           description: `${result.tags.length > 0 ? 'New tags added if space available.' : 'No new tags suggested or tags already exist.'}`,
@@ -257,7 +254,6 @@ export default function EventForm({
   };
 
   const processSubmit = (data: EventFormValues) => {
-    // Ensure customStyles is always an object, even if no custom styles were touched
     const dataToSubmit = {
         ...data,
         customStyles: data.customStyles || {}, 
@@ -309,9 +305,6 @@ export default function EventForm({
 
               
               <FormItem> <FormLabel>RSVP Information to Collect</FormLabel> <FormDescription>Select which details guests should provide when they RSVP.</FormDescription> <div className="space-y-3 pt-2"> <FormField control={form.control} name="rsvpCollectFields.name" render={({ field }) => ( <FormItem className="flex flex-row items-center space-x-3 space-y-0 p-3 border rounded-md shadow-sm hover:bg-muted/50"> <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange}/></FormControl> <FormLabel className="font-normal flex items-center cursor-pointer"> <User className="mr-2 h-5 w-5" style={{color: 'hsl(var(--primary))'}} /> Collect Name </FormLabel> </FormItem> )}/> <FormField control={form.control} name="rsvpCollectFields.email" render={({ field }) => ( <FormItem className="flex flex-row items-center space-x-3 space-y-0 p-3 border rounded-md shadow-sm hover:bg-muted/50"> <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange}/></FormControl> <FormLabel className="font-normal flex items-center cursor-pointer"> <AtSign className="mr-2 h-5 w-5" style={{color: 'hsl(var(--primary))'}} /> Collect Email Address </FormLabel> </FormItem> )}/> <FormField control={form.control} name="rsvpCollectFields.phone" render={({ field }) => ( <FormItem className="flex flex-row items-center space-x-3 space-y-0 p-3 border rounded-md shadow-sm hover:bg-muted/50"> <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange}/></FormControl> <FormLabel className="font-normal flex items-center cursor-pointer"> <Phone className="mr-2 h-5 w-5" style={{color: 'hsl(var(--primary))'}} /> Collect Phone Number </FormLabel> </FormItem> )}/> </div> </FormItem>
-              {/* 
-              <FormField control={form.control} name="allowEventSharing" render={({ field }) => ( <FormItem className="flex flex-row items-center space-x-3 space-y-0 p-3 border rounded-md shadow-sm hover:bg-muted/50"> <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange}/></FormControl> <div className="space-y-0.5"> <FormLabel className="font-normal flex items-center cursor-pointer"> <Share2 className="mr-2 h-5 w-5" style={{color: 'hsl(var(--primary))'}} /> Allow Event Sharing </FormLabel> <FormDescription> If checked, guests will see a "Share this Event" section on the invitation page. </FormDescription> </div> </FormItem> )}/>
-              */}
               
               <Separator />
               <div className="space-y-2">
@@ -400,7 +393,7 @@ export default function EventForm({
             
             <div className="space-y-3 mb-4">
               <div className="flex items-start">
-                <CalendarDays
+                <CalendarIcon
                   className="h-5 w-5 mr-3 flex-shrink-0"
                   style={{ color: watchedCustomStyles?.iconAndTitleColor || '#10B981' }} 
                 />
@@ -458,6 +451,7 @@ export default function EventForm({
                         variant="outline"
                         className="flex-1"
                         style={{
+                            backgroundColor: 'transparent',
                             borderColor: watchedCustomStyles?.rsvpButtonInactiveBorderColor || '#CBD5E0',
                             color: watchedCustomStyles?.rsvpButtonInactiveTextColor || '#718096',
                             fontFamily: watchedCustomStyles?.fontTitles || 'inherit'
@@ -470,6 +464,7 @@ export default function EventForm({
                         variant="outline"
                         className="flex-1"
                          style={{
+                            backgroundColor: 'transparent',
                             borderColor: watchedCustomStyles?.rsvpButtonInactiveBorderColor || '#CBD5E0',
                             color: watchedCustomStyles?.rsvpButtonInactiveTextColor || '#718096',
                             fontFamily: watchedCustomStyles?.fontTitles || 'inherit'
@@ -485,3 +480,4 @@ export default function EventForm({
     </div>
   );
 }
+
