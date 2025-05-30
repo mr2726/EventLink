@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useParams, useRouter, useSearchParams } from 'next/navigation'; // Added useSearchParams
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useEventStorage } from '@/hooks/useEventStorage';
 import type { Event, RSVPStatus } from '@/lib/types';
 import { useEffect, useState, useCallback } from 'react';
@@ -17,11 +17,12 @@ import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/contexts/AuthContext';
+import BuyEventLinkButton from '@/components/BuyEventLinkButton'; // Import the new component
 
 export default function EventPage() {
   const params = useParams();
   const router = useRouter();
-  const searchParams = useSearchParams(); // For reading query parameters
+  const searchParams = useSearchParams(); 
 
   const { getEventById, saveRSVP, incrementEventView, upgradeEventToPremium } = useEventStorage();
   const { user, isAuthenticated, isLoading: authIsLoading } = useAuth();
@@ -83,12 +84,12 @@ export default function EventPage() {
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      setEventUrl(window.location.href.split('?')[0]); // Get URL without query params for display
+      setEventUrl(window.location.href.split('?')[0]); 
     }
     fetchEventDetails();
   }, [fetchEventDetails]);
 
-  // Effect to handle mocked payment success
+  
   useEffect(() => {
     const paymentStatus = searchParams.get('payment_status');
     const lsEventId = searchParams.get('ls_event_id');
@@ -104,14 +105,11 @@ export default function EventPage() {
           const updatedEvent = await upgradeEventToPremium(eventId);
           if (updatedEvent) {
             setEvent(updatedEvent); 
-            // Success toast for upgrade is handled by the hook
           }
         } catch (error) {
-          // Error toast for upgrade is handled by the hook
           console.error("Upgrade processing error:", error);
         } finally {
           setIsProcessingUpgrade(false);
-          // Clean the URL
           router.replace(`/event/${eventId}`, undefined);
         }
       };
@@ -182,36 +180,6 @@ export default function EventPage() {
         toast({ title: "Copy Failed", description: "Could not copy link to clipboard.", variant: "destructive" });
       });
   };
-
-  const handleUpgradeEventWithMockPayment = async () => {
-    if (!event || !isOwner || event.isPremium || isProcessingUpgrade) return;
-    setIsProcessingUpgrade(true);
-
-    // Use the provided Variant ID and assume a store subdomain
-    // IMPORTANT: User might need to change this if their store is different
-    // The API key is NOT used here; this is a direct link for client-side simulation.
-    const lemonSqueezyStoreSubdomain = "eventlink-demo"; 
-    const lemonSqueezyVariantId = "827116"; // Your Variant ID
-
-    // Construct the redirect URL back to this page with success parameters
-    const baseAppUrl = typeof window !== 'undefined' ? `${window.location.protocol}//${window.location.host}` : '';
-    const redirectBackUrl = `${baseAppUrl}/event/${eventId}?payment_status=success&ls_event_id=${eventId}`;
-
-    const lemonSqueezyCheckoutUrl = `https://${lemonSqueezyStoreSubdomain}.lemonsqueezy.com/buy/${lemonSqueezyVariantId}?checkout[custom][event_id]=${eventId}&redirect_url=${encodeURIComponent(redirectBackUrl)}&checkout[transparent]=1&checkout[embed]=1`;
-    
-    toast({
-      title: "Redirecting to Checkout",
-      description: "You will be redirected to Lemon Squeezy.",
-    });
-
-    // Simulate a delay then redirect
-    setTimeout(() => {
-      if (typeof window !== 'undefined') {
-        window.location.href = lemonSqueezyCheckoutUrl;
-      }
-    }, 2000);
-  };
-
 
   const cs = event?.customStyles; 
   const defaultIconColor = 'var(--primary)'; 
@@ -341,6 +309,15 @@ export default function EventPage() {
       opacity: 0.9,
     };
   };
+
+  const lemonSqueezyCheckoutUrl = (() => {
+    if (!event || !isOwner || event.isPremium) return ''; // Only construct if needed
+    const lemonSqueezyStoreSubdomain = "eventlink-demo"; 
+    const lemonSqueezyVariantId = "827116"; 
+    const baseAppUrl = typeof window !== 'undefined' ? `${window.location.protocol}//${window.location.host}` : '';
+    const redirectBackUrl = `${baseAppUrl}/event/${eventId}?payment_status=success&ls_event_id=${eventId}`;
+    return `https://${lemonSqueezyStoreSubdomain}.lemonsqueezy.com/buy/${lemonSqueezyVariantId}?checkout[custom][event_id]=${eventId}&redirect_url=${encodeURIComponent(redirectBackUrl)}&checkout[embed]=1`;
+  })();
 
 
   return (
@@ -537,20 +514,16 @@ export default function EventPage() {
           </div>
           
           {isOwner && !event.isPremium && (
-            <div className="w-full text-center pt-4 border-t border-border">
-              <Button
-                onClick={handleUpgradeEventWithMockPayment}
-                disabled={isProcessingUpgrade}
-                variant="default"
-                size="lg"
-                className="bg-amber-500 hover:bg-amber-600 text-white"
-                style={{fontFamily: cs?.fontTitles || 'inherit'}}
+             <div className="w-full text-center pt-4 border-t border-border">
+              <BuyEventLinkButton
+                checkoutUrl={lemonSqueezyCheckoutUrl}
+                className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-amber-500 text-white hover:bg-amber-600 h-11 px-8"
               >
                 <Star className="mr-2 h-5 w-5 fill-white" />
                 {isProcessingUpgrade ? "Processing..." : "Upgrade to Enable Sharing Link"}
-              </Button>
+              </BuyEventLinkButton>
               <p className="text-xs text-muted-foreground mt-1" style={{fontFamily: cs?.fontDescription || 'inherit'}}>
-                Unlock the 'Share this Event' link section. (This will redirect to Lemon Squeezy)
+                This will open the Lemon Squeezy checkout.
               </p>
             </div>
           )}
